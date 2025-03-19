@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Compiled Lua sources
 luac.out
 
@@ -39,3 +40,25 @@ luac.out
 *.x86_64
 *.hex
 
+=======
+# Neovim Plugin-specific ignores
+*.swp
+*.swo
+*.swn
+*.bak
+*.pyc
+*.DS_Store
+
+# Lua dependencies (if applicable)
+**/.luarc.json
+**/.luacheckrc
+**/.luarc.jsonc
+
+# Vim backups
+**/.netrwhist
+**/tags
+
+# Plugin build artifacts
+build/
+dist/
+>>>>>>> ccf42e5 (Initial commit)
