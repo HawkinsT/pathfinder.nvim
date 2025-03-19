@@ -32,17 +32,24 @@ function M.select_file()
 
 	local function collect_candidates(win_start, win_end)
 		local all_candidates = {}
-		for line_num = win_start, win_end do
-			local line_text = vim.fn.getline(line_num)
-			local line_candidates = candidates.gather_line_candidates(line_text, line_num, 1)
-			if config.config.scan_unenclosed_words then
-				local word_candidates = candidates.gather_word_candidates(line_text, line_num, 1)
-				for _, candidate in ipairs(word_candidates) do
-					table.insert(line_candidates, candidate)
+		local line_num = win_start
+		while line_num <= win_end do
+			-- Don't scan folded blocks.
+			if vim.fn.foldclosed(line_num) ~= -1 then
+				line_num = vim.fn.foldclosedend(line_num) + 1
+			else
+				local line_text = vim.fn.getline(line_num)
+				local line_candidates = candidates.gather_line_candidates(line_text, line_num, 1)
+				if config.config.scan_unenclosed_words then
+					local word_candidates = candidates.gather_word_candidates(line_text, line_num, 1)
+					for _, candidate in ipairs(word_candidates) do
+						table.insert(line_candidates, candidate)
+					end
 				end
-			end
-			for _, candidate in ipairs(line_candidates) do
-				table.insert(all_candidates, candidate)
+				for _, candidate in ipairs(line_candidates) do
+					table.insert(all_candidates, candidate)
+				end
+				line_num = line_num + 1
 			end
 		end
 		return all_candidates
