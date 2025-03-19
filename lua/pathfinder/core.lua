@@ -95,7 +95,7 @@ local function custom_gf(is_gF, count)
 			local candidate = valids[target_index]
 			local linenr = nil
 			if is_nextfile and is_gF then
-				linenr = (user_count > 0) and count or (candidate.candidate_info.lnenr or 1)
+				linenr = (user_count > 0) and count or (candidate.candidate_info.linenr or 1)
 			elseif is_gF then
 				linenr = candidate.candidate_info.linenr or 1
 			end
