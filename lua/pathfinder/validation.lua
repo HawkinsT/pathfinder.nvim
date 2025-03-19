@@ -7,7 +7,7 @@ local utils = require("pathfinder.utils")
 -- Checks if the resolved candidate file exists. If not, appends each extension
 -- from the combined suffix list until valid file targets are found.
 --
--- If multiple valid targets are found and |select_multiple_options| is enabled,
+-- If multiple valid targets are found and |offer_multiple_options| is enabled,
 -- we prompt the user with vim.fn.input. In "auto mode" (auto_select==true),
 -- the first option is automatically chosen with no prompt.
 function M.default_validate_candidate(candidate, callback, auto_select)

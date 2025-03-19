@@ -64,7 +64,7 @@ This displays all visible files in the buffer, letting you pick one with minimal
 
 ## Configuration
 
-Unless you wish to override the default settings, no setup if required. If you do, the Pathfinder defaults may be modified by calling `require('pathfinder').setup()` in your Neovim config. As an example, here is the default configuration. You only need to specify setup keys that you wish to override:
+Unless you wish to override the default settings, no setup is required. If you do, the Pathfinder defaults may be modified by calling `require('pathfinder').setup()` in your Neovim config. As an example, here is the default configuration. You only need to specify setup keys that you wish to override:
 
 ```lua
 require('pathfinder').setup({
