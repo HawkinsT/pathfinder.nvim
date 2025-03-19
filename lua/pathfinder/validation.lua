@@ -100,7 +100,7 @@ function M.default_validate_candidate(candidate, callback, auto_select)
 		end)
 		if not ok then
 			vim.cmd("redraw")
-			callback("")
+			callback(nil)
 		end
 	end
 end
