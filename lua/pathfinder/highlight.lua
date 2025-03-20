@@ -39,13 +39,9 @@ function M.select_file()
 				line_num = vim.fn.foldclosedend(line_num) + 1
 			else
 				local line_text = vim.fn.getline(line_num)
-				local line_candidates = candidates.gather_line_candidates(line_text, line_num, 1)
-				if config.config.scan_unenclosed_words then
-					local word_candidates = candidates.gather_word_candidates(line_text, line_num, 1)
-					for _, candidate in ipairs(word_candidates) do
-						table.insert(line_candidates, candidate)
-					end
-				end
+				local scan_unenclosed_words = config.config.scan_unenclosed_words
+				local line_candidates = candidates.scan_line(line_text, line_num, 1, scan_unenclosed_words)
+
 				for _, candidate in ipairs(line_candidates) do
 					table.insert(all_candidates, candidate)
 				end
