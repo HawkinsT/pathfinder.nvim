@@ -72,14 +72,19 @@ function M.select_file()
 		for _, candidate in ipairs(active_candidates) do
 			local start_col = candidate.candidate_info.start_col - 1
 			local finish_col = candidate.candidate_info.finish
-
-			if candidate.candidate_info.type == "enclosures" and candidate.candidate_info.opening_delim then
+			if
+				candidate.candidate_info.type == "enclosures"
+				and candidate.candidate_info.opening_delim
+				and not candidate.candidate_info.no_delimiter_adjustment
+			then
 				start_col = start_col + #candidate.candidate_info.opening_delim
 				if candidate.candidate_info.closing_delim then
 					finish_col = finish_col - #candidate.candidate_info.closing_delim
 				end
 			end
-
+			-- Clamp finish_col to the line length to prevent out-of-range errors.
+			local line_text = vim.fn.getline(candidate.candidate_info.lnum)
+			finish_col = math.min(finish_col, #line_text)
 			local display_label = input_prefix and candidate.label:sub(#input_prefix + 1) or candidate.label
 			local virt_text = {}
 			if #display_label > 0 then
@@ -209,11 +214,7 @@ function M.select_file()
 					vim.api.nvim_buf_clear_namespace(current_buffer, dim_ns, 0, -1)
 					vim.cmd("redraw")
 					vim.schedule(function()
-						core.try_open_file(
-							matching_candidates[1],
-							false,
-							matching_candidates[1].candidate_info.lnenr or 1
-						)
+						core.try_open_file(matching_candidates[1], false, 1)
 					end)
 					break
 				elseif #user_input < required_length then
