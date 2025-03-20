@@ -113,6 +113,16 @@ require('pathfinder').setup({
 })
 ```
 
+The colour scheme used by select_file() may be changed with using the following highlight groups:
+
+```lua
+vim.api.nvim_set_hl(0, "EnhancedGFDim",	   { fg = "#808080", bg = "none" })
+vim.api.nvim_set_hl(0, "EnhancedGFHighlight",  { fg = "#DDDDDD", bg = "none" })
+vim.api.nvim_set_hl(0, "EnhancedGFNextKey",	   { fg = "#FF00FF", bg = "none" })
+vim.api.nvim_set_hl(0, "EnhancedGFFutureKeys", { fg = "#BB00AA", bg = "none" })
+
+```
+
 ### Highlights
 
 - **`forward_limit`**: Set the forward search limit to a specific number of lines. Set to `0` for single-line search or `-1` for the whole visible buffer.

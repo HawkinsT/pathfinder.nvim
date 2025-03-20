@@ -96,7 +96,7 @@ CONFIGURATION
  `config` is an optional table overriding default settings. Calling the setup
  function is not required unless you wish to override any default values.
 
- Defaults:
+Defaults ~
 >lua
     require('pathfinder').setup({
  	forward_limit = -1,
@@ -119,6 +119,19 @@ CONFIGURATION
 	remap_default_keys = true,
 	selection_keys = { "a", "s", "d", "f", "j", "k", "l" },
     })
+<
+
+						 *pathfinder-highlight-groups*
+Highlight Groups ~
+
+The |select_file| function uses the following default highlight groups, which
+may be overridden:
+
+>lua
+    vim.api.nvim_set_hl(0, "EnhancedGFDim",	   { fg = "#808080", bg = "none" })
+    vim.api.nvim_set_hl(0, "EnhancedGFHighlight",  { fg = "#DDDDDD", bg = "none" })
+    vim.api.nvim_set_hl(0, "EnhancedGFNextKey",	   { fg = "#FF00FF", bg = "none" })
+    vim.api.nvim_set_hl(0, "EnhancedGFFutureKeys", { fg = "#BB00AA", bg = "none" })
 <
 
 -------------------------------------------------------------------------------
@@ -275,6 +288,9 @@ Inspired by plugins such as `EasyMotion` and `Hop`, this function displays all
 visible valid files in the current buffer and allows the user to select which
 one to open based on motion targets. This function is mapped to `<leader>gf`
 by default.
+
+The colour scheme used by this function is configurable via highlight groups.
+See |pathfinder-highlight-groups|.
 
 Note that |offer_multiple_options| isn't currently implemented with this
 function.
