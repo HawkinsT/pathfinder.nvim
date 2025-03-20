@@ -19,7 +19,7 @@ Pathfinder enhances Neovim's native file navigation by extending `gf` (go to fil
 - **Enclosure Support**: Recognizes file paths in quotes, brackets, or custom, multi-character delimiters.
 - **Interactive Selection**: Choose from multiple matches with a simple prompt when ambiguity emerges.
 - **Flexible Opening Modes**: Open files in the current buffer, splits, tabs, or even external programs.
-- **Quick File Picker**: Use `select_files()` to jump to any visible file in the buffer, mapped to `<leader>gf` by default.
+- **Quick File Picker**: Use `select_file()` to jump to any visible file in the buffer, mapped to `<leader>gf` by default.
 
 ---
 
@@ -56,7 +56,7 @@ Pathfinder works out of the box by enhancing `gf` and `gF`. Here’s how it beha
 
 If multiple files match (e.g. `eval.c` and `eval.h`), Pathfinder prompts you to choose, unless configured to always select the first match.
 
-For a more visual workflow, you may use the `select_files()` function, mapped to `<leader>gf` by default, which is inspired by [EasyMotion](https://github.com/easymotion/vim-easymotion) and [Hop](https://github.com/hadronized/hop.nvim).
+For a more visual workflow, you may use the `select_file()` function, mapped to `<leader>gf` by default, which is inspired by [EasyMotion](https://github.com/easymotion/vim-easymotion) and [Hop](https://github.com/hadronized/hop.nvim).
 
 This displays all visible files in the buffer, letting you pick one with minimal keypresses.
 
@@ -91,7 +91,7 @@ require('pathfinder').setup({
 	-- User interaction
 	offer_multiple_options = true, -- If multiple valid files with the same name are found, prompt for action
 	remap_default_keys = true, -- Remap `gf`, `gF`, and `<leader>gf` to Pathfinder's functions
-	selection_keys = { "a", "s", "d", "f", "j", "k", "l" }, -- Keys to use for selection in `select_files()`
+	selection_keys = { "a", "s", "d", "f", "j", "k", "l" }, -- Keys to use for selection in `select_file()`
 })
 ```
 
@@ -122,7 +122,7 @@ require('pathfinder').setup({
   ```lua
     vim.keymap.set('n', 'gf', require('pathfinder').gf)
     vim.keymap.set('n', 'gF', require('pathfinder').gF)
-    vim.keymap.set('n', '<leader>gf', require('pathfinder').select_files)
+    vim.keymap.set('n', '<leader>gf', require('pathfinder').select_file)
   ```
 
 ---
