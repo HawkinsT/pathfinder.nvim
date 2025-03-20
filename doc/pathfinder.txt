@@ -13,7 +13,7 @@ Configuration ...................................... |pathfinder-configuration|
     File Resolution .............................. |pathfinder-file-resolution|
     User Interaction ............................ |pathfinder-user-interaction|
 Functions .............................................. |pathfinder-functions|
-    select_files() .................................. |pathfinder-select-files|
+    select_file() .................................. |pathfinder-select-files|
 Filetype Overrides ............................ |pathfinder-filetype-overrides|
 Custom Key Mappings .............................. |pathfinder-custom-key-maps|
 
@@ -36,7 +36,7 @@ for navigating to files under the cursor. It enhances file resolution with:
 By default, this plugin remaps `gf` and `gF` to provide these enhancements,
 although this can be disabled and custom keymaps used.
 
-The function |pathfinder-select_files| is also provided, but unmapped by
+The function |pathfinder-select_file| is also provided, but unmapped by
 default. Inspired by other plugins, namely `EasyMotion`, it displays all file
 targets in the current visible area, allowing the user to open any in as few
 keystrokes as possible.
@@ -262,15 +262,15 @@ Default: `false` (boolean)
 selection_keys ~
 Default: `{ "a", "s", "d", "f", "j", "k", "l" }` (string[])
 
-    Keys used for user input when |select_files| is called. Useful for users
+    Keys used for user input when |select_file| is called. Useful for users
     of non-qwerty layouts.
 
 ==============================================================================
 							*pathfinder-functions*
 FUNCTIONS
 
-						     *pathfinder-select_files*
-select_files() ~
+						     *pathfinder-select_file*
+select_file() ~
 Inspired by plugins such as `EasyMotion` and `Hop`, this function displays all
 visible valid files in the current buffer and allows the user to select which
 one to open based on motion targets. This function is mapped to `<leader>gf`
@@ -304,6 +304,6 @@ setting your own key mappings. For example:
  })
  vim.keymap.set('n', 'gf', require('pathfinder').gf)
  vim.keymap.set('n', 'gF', require('pathfinder').gF)
- vim.keymap.set('n', '<leader>gf', require('pathfinder').select_files())
+ vim.keymap.set('n', '<leader>gf', require('pathfinder').select_file)
 <
 vim:tw=78:ts=8:noet:ft=help:norl:
