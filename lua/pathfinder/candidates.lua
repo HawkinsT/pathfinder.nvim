@@ -281,7 +281,7 @@ function M.collect_forward_candidates(cursor_line, cursor_col)
 	for lnum = cursor_line, buffer_end do
 		local forward_limit = config.config.forward_limit
 		if forward_limit == -1 then
-			forward_limit = vim.fn.winheight(0) - vim.fn.winline()
+			forward_limit = vim.fn.winheight(0) - vim.fn.winline() + 1
 		end
 		if forward_limit and lines_searched >= forward_limit then
 			break
