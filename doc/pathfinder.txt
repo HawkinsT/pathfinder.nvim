@@ -128,10 +128,10 @@ The |select_file| function uses the following default highlight groups, which
 may be overridden:
 
 >lua
-    vim.api.nvim_set_hl(0, "EnhancedGFDim",	   { fg = "#808080", bg = "none" })
-    vim.api.nvim_set_hl(0, "EnhancedGFHighlight",  { fg = "#DDDDDD", bg = "none" })
-    vim.api.nvim_set_hl(0, "EnhancedGFNextKey",	   { fg = "#FF00FF", bg = "none" })
-    vim.api.nvim_set_hl(0, "EnhancedGFFutureKeys", { fg = "#BB00AA", bg = "none" })
+    vim.api.nvim_set_hl(0, "PathfinderDim",	   { fg = "#808080", bg = "none" })
+    vim.api.nvim_set_hl(0, "PathfinderHighlight",  { fg = "#DDDDDD", bg = "none" })
+    vim.api.nvim_set_hl(0, "PathfinderNextKey",	   { fg = "#FF00FF", bg = "none" })
+    vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
 <
 
 -------------------------------------------------------------------------------

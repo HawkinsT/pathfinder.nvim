@@ -13,10 +13,10 @@ local function set_default_highlight(group, default)
 end
 
 function M.select_file()
-	local candidate_highlight_group = "EnhancedGFHighlight"
-	local dim_group = "EnhancedGFDim"
-	local next_key_group = "EnhancedGFNextKey"
-	local future_key_group = "EnhancedGFFutureKeys"
+	local candidate_highlight_group = "PathfinderHighlight"
+	local dim_group = "PathfinderDim"
+	local next_key_group = "PathfinderNextKey"
+	local future_key_group = "PathfinderFutureKeys"
 
 	set_default_highlight(candidate_highlight_group, { fg = "#DDDDDD", bg = "none" })
 	set_default_highlight(dim_group, { fg = "#808080", bg = "none" })
