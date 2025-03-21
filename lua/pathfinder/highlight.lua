@@ -66,20 +66,19 @@ function M.select_file()
 		end
 
 		for _, candidate in ipairs(active_candidates) do
-			local start_col = candidate.candidate_info.start_col - 1
-			local finish_col = candidate.candidate_info.finish
-			if
-				candidate.candidate_info.type == "enclosures"
-				and candidate.candidate_info.opening_delim
-				and not candidate.candidate_info.no_delimiter_adjustment
-			then
-				start_col = start_col + #candidate.candidate_info.opening_delim
-				if candidate.candidate_info.closing_delim then
-					finish_col = finish_col - #candidate.candidate_info.closing_delim
-				end
+			local ci = candidate.candidate_info
+			local start_col = ci.start_col - 1
+			local finish_col = ci.finish - 1
+
+			if ci.type == "enclosures" and ci.opening_delim and not ci.no_delimiter_adjustment then
+				start_col = start_col + #ci.opening_delim
+				finish_col = finish_col - (#ci.closing_delim or 0)
 			end
+
+			finish_col = finish_col + (ci.escaped_space_count or 0)
+
 			-- Clamp finish_col to the line length to prevent out-of-range errors.
-			local line_text = vim.fn.getline(candidate.candidate_info.lnum)
+			local line_text = vim.fn.getline(ci.lnum)
 			finish_col = math.min(finish_col, #line_text)
 			local display_label = input_prefix and candidate.label:sub(#input_prefix + 1) or candidate.label
 			local virt_text = {}
@@ -90,7 +89,7 @@ function M.select_file()
 				end
 			end
 
-			vim.api.nvim_buf_set_extmark(current_buffer, highlight_ns, candidate.candidate_info.lnum - 1, start_col, {
+			vim.api.nvim_buf_set_extmark(current_buffer, highlight_ns, ci.lnum - 1, start_col, {
 				virt_text = virt_text,
 				virt_text_pos = "overlay",
 				hl_group = candidate_highlight_group,

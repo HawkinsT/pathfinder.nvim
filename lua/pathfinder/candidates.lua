@@ -228,7 +228,8 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words)
 			local close_pos = M.find_closing(line, content_start, closing)
 			if close_pos then
 				local enclosed_str = line:sub(content_start, close_pos - 1)
-				enclosed_str = enclosed_str:gsub("\\ ", " ")
+				local escaped_spaces
+				enclosed_str, escaped_spaces = enclosed_str:gsub("\\ ", " ")
 				enclosed_str = M.strip_nested_enclosures(enclosed_str, enclosure_pairs)
 				-- For enclosure candidates, use content_start as the base offset.
 				local candidates = process_candidate_string(
@@ -246,6 +247,7 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words)
 					cand.opening_delim = opening
 					cand.closing_delim = closing
 					cand.no_delimiter_adjustment = true
+					cand.escaped_space_count = escaped_spaces
 					table.insert(results, cand)
 				end
 				pos = close_pos + #closing
