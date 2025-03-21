@@ -143,10 +143,10 @@ SEARCH BEHAVIOUR
 forward_limit ~
 Default: `-1` (integer)
 
-    If |multiline_search| is enabled, this specifies the maximum number of
-    lines to search beyond the current line. If set to `-1`, then the search
-    will only take place throughout the currently visible buffer area. Set to
-    `0` to only search the current cursor line, best approximating default
+    This specifies the maximum number of lines to search beyond the current
+    line (inclusive). If set to `-1`, then the search will only take place
+    throughout the currently visible buffer area. Set to `1` to only search
+    ahead of the cursor on the current cursor line, best approximating default
     `gf` and `gF` behaviour.
 
 					    *pathfinder-scan_unenclosed_words*

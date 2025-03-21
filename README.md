@@ -125,7 +125,7 @@ vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
 
 ### Highlights
 
-- **`forward_limit`**: Set the forward search limit to a specific number of lines. Set to `0` for single-line search or `-1` for the whole visible buffer.
+- **`forward_limit`**: Set the forward search limit to a specific number of lines. Set to `1` for single-line search or `-1` for the visible buffer area.
 - **`open_mode`**: Use any command to open files, e.g. `"split"`, `"vsplit"`, or `"tabnew"` instead of `"edit"`.
 - **`ft_overrides`**: Customize per-filetype.
 - **`remap_default_keys`**: Set to `false` to use custom mappings:
