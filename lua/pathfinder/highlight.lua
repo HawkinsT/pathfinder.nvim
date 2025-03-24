@@ -150,7 +150,6 @@ function M.select_file()
 	end
 
 	local function cancel_selection()
-		vim.notify("Selection cancelled", vim.log.levels.INFO)
 		vim.api.nvim_buf_clear_namespace(current_buffer, highlight_ns, 0, -1)
 		vim.api.nvim_buf_clear_namespace(current_buffer, dim_ns, 0, -1)
 	end
