@@ -15,39 +15,42 @@ function M.deduplicate_candidates(candidates)
 end
 
 function M.strip_nested_enclosures(str, pairs)
+	local removed = 0
 	while true do
 		local first = str:sub(1, 1)
 		local closing = pairs[first]
 		if closing and str:sub(-#closing) == closing then
 			str = str:sub(1 + #first, -#closing - 1 or nil)
+			removed = removed + #first
 		else
 			break
 		end
 	end
-	return str
+	return str, removed
 end
 
 --stylua: ignore
-local patterns = {
-    { pattern = "^(.-)%s*%(%s*(%d+)%s*%)%s*$" },    -- e.g. "file (line)"
-    { pattern = "^(.-)%s*:%s*(%d+)%s*$" },          -- e.g. "file:line"
-    { pattern = "^(.-)%s*@%s*(%d+)%s*$" },          -- e.g. "file @ line"
-    { pattern = "^(.-)%s+(%d+)%s*$" },              -- e.g. "file line"
+M.patterns = {
+    { pattern = "(%S+)%s*%(%s*(%d+)%s*%)" }, -- e.g. "file (line)"
+    { pattern = "(%S+)%s*:%s*(%d+)" },       -- e.g. "file:line"
+    { pattern = "(%S+)%s*@%s*(%d+)" },       -- e.g. "file @ line"
+    { pattern = "(%S+)%s+(%d+)" },           -- e.g. "file line"
 }
 
 function M.parse_filename_and_linenr(str)
-	str = str:match("^%s*(.-)%s*$") -- Trim leading/trailing whitespace.
-	for _, pat in ipairs(patterns) do
+	str = str:gsub("\\ ", " ")
+
+	for _, pat in ipairs(M.patterns) do
 		local filename, linenr_str = str:match(pat.pattern)
 		if filename and linenr_str then
+			filename = vim.trim(filename)
+			filename = filename:gsub("[.,:;!]+$", "")
 			return filename, tonumber(linenr_str)
 		end
 	end
-
-	if vim.fn.has("win64") == 1 or vim.fn.has("win32") == 1 then
-		return str:gsub("[.,;!]+$", ""), nil -- Don't clean up : on Windows.
-	end
-	return str:gsub("[.,:;!]+$", ""), nil -- Clean up trailing punctuation, no line number.
+	-- If no match, return the trimmed string without line number.
+	local cleaned = str:gsub("[.,:;!]+$", "")
+	return vim.trim(cleaned), nil
 end
 
 function M.find_next_opening(line, start_pos, openings)
@@ -72,58 +75,73 @@ function M.find_closing(line, start_pos, closing)
 	return nil
 end
 
-local function split_candidate_string(str)
-	local parts = {}
-	for segment in str:gmatch("([^,;|]+)") do
-		table.insert(parts, segment)
-	end
-	return parts
-end
-
---- Processes a candidate string into one or more candidates.
-local function process_candidate_string(raw_str, lnum, start_col, finish_col, cand_type, min_col, base_offset)
+--- Processes a candidate string into one or more file candidates.
+---@param raw_str string The raw string to process (e.g. "'some\ file.txt','file2'").
+---@param lnum number The line number in the buffer where this string appears.
+---@param start_col number The starting column of the raw string in the original line.
+---@param min_col number|nil Minimum column to include candidates from (nil means no limit).
+---@param base_offset number|nil Optional offset for the start position (e.g. after an opening delimiter).
+---@param escaped_space_count number|nil Number of escaped spaces replaced in the original string.
+---@return table A list of candidate tables with filename, positions, and metadata.
+local function process_candidate_string(raw_str, lnum, start_col, min_col, base_offset, escaped_space_count)
 	local results = {}
-	-- base_offset used for calculating boundaries when enclosures used.
-	local offset = base_offset or start_col
-	local trimmed = vim.trim(raw_str):gsub("^['\"]", ""):gsub("['\"]$", "")
-	local parts = split_candidate_string(trimmed)
-	if #parts > 1 then
-		local idx = 1
-		while true do
-			local s, e = trimmed:find("([^,;|]+)", idx)
-			if not s then
-				break
-			end
-			local piece = trimmed:sub(s, e)
-			piece = vim.trim(piece):gsub("^['\"]", ""):gsub("['\"]$", "")
-			local filename, linenr = M.parse_filename_and_linenr(piece)
-			local cand_start = offset + (s - 1)
-			local cand_finish = offset + e
-			if not min_col or cand_finish >= min_col then
-				table.insert(results, {
-					filename = filename,
-					lnum = lnum,
-					start_col = cand_start,
-					finish = cand_finish,
-					type = cand_type,
-					linenr = linenr,
-				})
-			end
-			idx = e + 1
+	local base = base_offset or start_col
+	escaped_space_count = escaped_space_count or 0
+
+	local search_pos = 1
+	while true do
+		local match_start, match_end = raw_str:find("([^,;|]+)", search_pos)
+		if not match_start then
+			break
 		end
-	else
-		local filename, linenr = M.parse_filename_and_linenr(trimmed)
-		if not min_col or finish_col >= min_col then
+
+		local piece = raw_str:sub(match_start, match_end)
+		local piece_leading = piece:match("^(%s*)") or ""
+		local trimmed_piece = vim.trim(piece)
+		local inner_str, inner_removed = M.strip_nested_enclosures(trimmed_piece, config.config.enclosure_pairs)
+		local start_pos = inner_str:find("%S") or 1
+		local end_pos = #inner_str - #(inner_str:match("%s*$") or "")
+		local filename_str = inner_str:sub(start_pos, end_pos)
+		local cand_start = base + (match_start - 1) + #piece_leading + inner_removed + (start_pos - 1)
+		local filename_length = end_pos - start_pos + 1
+		local cand_finish = cand_start + filename_length
+
+		if not min_col or cand_finish >= min_col then
+			local filename, linenr = M.parse_filename_and_linenr(filename_str)
 			table.insert(results, {
 				filename = filename,
 				lnum = lnum,
-				start_col = offset,
-				finish = offset + #trimmed,
-				type = cand_type,
+				start_col = cand_start,
+				finish = cand_finish,
 				linenr = linenr,
+				escaped_space_count = escaped_space_count,
 			})
 		end
+		search_pos = match_end + 1
 	end
+
+	if search_pos == 1 then
+		local piece_leading = raw_str:match("^(%s*)") or ""
+		local trimmed_str = vim.trim(raw_str)
+		local inner_str, inner_removed = M.strip_nested_enclosures(trimmed_str, config.config.enclosure_pairs)
+		local start_pos = inner_str:find("%S") or 1
+		local end_pos = #inner_str - #(inner_str:match("%s*$") or "")
+		local filename_str = inner_str:sub(start_pos, end_pos)
+		local cand_start = base + #piece_leading + inner_removed + (start_pos - 1)
+		local filename_length = end_pos - start_pos + 1
+		local cand_finish = cand_start + filename_length
+
+		local filename, linenr = M.parse_filename_and_linenr(filename_str)
+		table.insert(results, {
+			filename = filename,
+			lnum = lnum,
+			start_col = cand_start,
+			finish = cand_finish,
+			linenr = linenr,
+			escaped_space_count = escaped_space_count,
+		})
+	end
+
 	return results
 end
 
@@ -132,22 +150,21 @@ local function parse_words_in_segment(line, start_pos, end_pos, lnum, min_col, r
 	local matches = {}
 
 	-- Find all matches of filename-line number patterns.
-	for _, pat in ipairs(patterns) do
-		local s, e, filename, linenr_str = segment:find(pat.pattern)
-		while s do
-			local abs_s = start_pos + s - 1
-			local abs_e = start_pos + e - 1
+	for _, pat in ipairs(M.patterns) do
+		local match_start, match_end, filename, linenr_str = segment:find(pat.pattern)
+		while match_start do
+			local abs_s = start_pos + match_start - 1
+			local abs_e = start_pos + match_end
 			if not min_col or abs_e >= min_col then
 				table.insert(matches, {
 					filename = filename,
 					lnum = lnum,
 					start_col = abs_s,
 					finish = abs_e,
-					type = "word",
 					linenr = tonumber(linenr_str),
 				})
 			end
-			s, e, filename, linenr_str = segment:find(pat.pattern, e + 1)
+			match_start, match_end, filename, linenr_str = segment:find(pat.pattern, match_end + 1)
 		end
 	end
 
@@ -166,7 +183,7 @@ local function parse_words_in_segment(line, start_pos, end_pos, lnum, min_col, r
 			end
 			local word_finish = math.min(word_e, match.start_col - 1)
 			local word_str = line:sub(word_s, word_finish)
-			local candidates = process_candidate_string(word_str, lnum, word_s, word_finish, "word", min_col)
+			local candidates = process_candidate_string(word_str, lnum, word_s, min_col)
 			for _, cand in ipairs(candidates) do
 				current_order = current_order + 1
 				cand.order = current_order
@@ -188,7 +205,7 @@ local function parse_words_in_segment(line, start_pos, end_pos, lnum, min_col, r
 		end
 		local word_finish = math.min(word_e, end_pos)
 		local word_str = line:sub(word_s, word_finish)
-		local candidates = process_candidate_string(word_str, lnum, word_s, word_finish, "word", min_col)
+		local candidates = process_candidate_string(word_str, lnum, word_s, min_col)
 		for _, cand in ipairs(candidates) do
 			current_order = current_order + 1
 			cand.order = current_order
@@ -215,7 +232,6 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words)
 	end)
 
 	while pos <= #line do
-		-- local open_pos, opening = nil, nil
 		local open_pos, opening = M.find_next_opening(line, pos, openings)
 
 		if open_pos then
@@ -226,28 +242,20 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words)
 			local closing = enclosure_pairs[opening]
 			local content_start = open_pos + #opening
 			local close_pos = M.find_closing(line, content_start, closing)
+
 			if close_pos then
 				local enclosed_str = line:sub(content_start, close_pos - 1)
-				local escaped_spaces
-				enclosed_str, escaped_spaces = enclosed_str:gsub("\\ ", " ")
-				enclosed_str = M.strip_nested_enclosures(enclosed_str, enclosure_pairs)
-				-- For enclosure candidates, use content_start as the base offset.
-				local candidates = process_candidate_string(
-					enclosed_str,
-					lnum,
-					open_pos,
-					close_pos,
-					"enclosures",
-					min_col,
-					content_start
-				)
+				-- Handle escaped spaces if necessary.
+				local escaped_space_count
+				enclosed_str, escaped_space_count = enclosed_str:gsub("\\ ", " ")
+				local candidates =
+					process_candidate_string(enclosed_str, lnum, open_pos, min_col, content_start, escaped_space_count)
 				for _, cand in ipairs(candidates) do
 					order = order + 1
 					cand.order = order
 					cand.opening_delim = opening
 					cand.closing_delim = closing
 					cand.no_delimiter_adjustment = true
-					cand.escaped_space_count = escaped_spaces
 					table.insert(results, cand)
 				end
 				pos = close_pos + #closing

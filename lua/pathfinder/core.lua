@@ -21,7 +21,7 @@ local function handle_current_file(is_gF, line, cfile, resolved_cfile)
 	if resolved_cfile == current_file then
 		if is_gF then
 			-- If no line is provided, default to line 1.
-			-- line = (line == 0) and 1 or line
+			line = (line == 0) and 1 or line
 			vim.api.nvim_win_set_cursor(0, { line, 0 })
 		else
 			vim.notify("File '" .. cfile .. "' is the current file", vim.log.levels.INFO)
@@ -54,41 +54,53 @@ function M.try_open_file(valid_candidate, is_gF, linenr)
 	end
 end
 
--- Processes the file under the cursor when scanning unenclosed words is disabled.
-local function process_cursor_file(is_gF, line)
-	-- local cfile = vim.fn.expand("<cfile>")
-	-- local cfile
-	-- if is_gF and line == 0 then
-	-- Use <cWORD> for gF so that embedded line numbers (e.g. ":10") are preserved.
-	local cfile = vim.fn.expand("<cWORD>")
-	-- else
-	-- 	cfile = vim.fn.expand("<cfile>")
-	-- end
-
-	if line == 0 then
-		-- This returns both the cleaned filename and the parsed line number (if any)
-		local filename, parsed_line = candidates.parse_filename_and_linenr(cfile)
-		if parsed_line then
-			cfile = filename
-			line = parsed_line
+-- Extracts filename and line number from the current line around the cursor.
+local function get_cursor_file_and_line(line_text, cursor_col)
+	-- Adjust cursor_col to be 1-based for lua and inclusive of the character under cursor.
+	cursor_col = cursor_col + 1
+	for _, pat in ipairs(candidates.patterns) do
+		local match_start, match_end = line_text:find(pat.pattern)
+		while match_start do
+			-- Check if cursor is within or immediately after the match.
+			if match_start <= cursor_col and cursor_col <= match_end + 1 then
+				local match_str = line_text:sub(match_start, match_end)
+				local filename, linenr = candidates.parse_filename_and_linenr(match_str)
+				if filename then
+					return filename, linenr
+				end
+			end
+			match_start, match_end = line_text:find(pat.pattern, match_end + 1)
 		end
 	end
+	-- Fallback: Parse <cWORD> for line number.
+	local cfile = vim.fn.expand("<cWORD>")
+	local filename, linenr = candidates.parse_filename_and_linenr(cfile)
+	return filename, linenr
+end
 
-	local resolved_cfile = utils.resolve_file(cfile)
+-- Processes the file under the cursor when scanning unenclosed words is disabled.
+local function process_cursor_file(is_gF, line)
+	local line_text = vim.fn.getline(".")
+	local cursor_col = vim.fn.col(".") - 1
+	local filename, parsed_line = get_cursor_file_and_line(line_text, cursor_col)
+	if parsed_line then
+		line = parsed_line
+	end
+
+	local resolved_cfile = utils.resolve_file(filename)
 	if not utils.is_valid_file(resolved_cfile) then
 		return false
 	end
 
-	if handle_current_file(is_gF, line, cfile, resolved_cfile) then
+	if handle_current_file(is_gF, line, filename, resolved_cfile) then
 		return true
 	end
 
-	-- For the open command, include the count only if is_gF is true.
 	execute_open_command(resolved_cfile, is_gF, is_gF and line or nil)
 	return true
 end
 
--- Main function handling both gf and gF commands.
+-- Main function handling gf/gF.
 local function custom_gf(is_gF, count)
 	local user_count = count
 	local is_nextfile = config.config.gF_count_behaviour == "nextfile"
@@ -97,7 +109,6 @@ local function custom_gf(is_gF, count)
 	local cursor_col = vim.fn.col(".")
 
 	-- When scanning for unenclosed words is disabled, try to process the file directly.
-	-- Special case for handling unenclosed filename under the cursor when scan_unenclosed_words is false.
 	if not config.config.scan_unenclosed_words then
 		if (is_gF or (not is_gF and count == 0)) and process_cursor_file(is_gF, count) then
 			return
@@ -107,7 +118,42 @@ local function custom_gf(is_gF, count)
 	-- Collect forward candidates from the current cursor position.
 	local cand_list = candidates.collect_forward_candidates(cursor_line, cursor_col)
 
-	-- For non-gF calls with a count > 1, insert the unenclosed candidate at the beginning.
+	-- If scan_unenclosed_words is true, filter and reorder candidates.
+	if config.config.scan_unenclosed_words then
+		local forward_candidates = {}
+		local cursor_candidate = nil
+		local cursor_idx = nil
+
+		-- Step 1: Identify the candidate under or nearest to the cursor and collect forward candidates.
+		for i, cand in ipairs(cand_list) do
+			local cand_start = cand.start_col - 1 -- 0-based
+			local cand_end = cand.finish - 1
+			if cand.lnum == cursor_line then
+				-- Only include candidates at or ahead of the cursor on the current line.
+				if cand_end >= cursor_col then
+					-- Check if this is the candidate under the cursor.
+					if cursor_col >= cand_start and cursor_col <= cand_end + 1 then
+						cursor_candidate = cand
+						cursor_idx = #forward_candidates + 1 -- Index it will have after insertion.
+					end
+					table.insert(forward_candidates, cand)
+				end
+			else
+				-- Include all candidates from subsequent lines.
+				table.insert(forward_candidates, cand)
+			end
+		end
+
+		-- Step 2: Reorder so the cursor candidate (if any) is first.
+		if cursor_candidate and cursor_idx and cursor_idx > 1 then
+			table.remove(forward_candidates, cursor_idx)
+			table.insert(forward_candidates, 1, cursor_candidate)
+		end
+
+		cand_list = forward_candidates
+	end
+
+	-- For non-gF calls with a count > 1, insert the unenclosed candidate at the beginning (if applicable).
 	if not config.config.scan_unenclosed_words and not is_gF and count > 1 then
 		local cfile = vim.fn.expand("<cfile>")
 		if utils.is_valid_file(utils.resolve_file(cfile)) then
@@ -129,12 +175,6 @@ local function custom_gf(is_gF, count)
 			local candidate = valids[candidate_index]
 			local linenr = nil
 			if is_gF then
-				-- if is_nextfile then
-				-- 	linenr = (user_count > 0) and count or (candidate.candidate_info.linenr or 1)
-				-- else
-				-- 	linenr = candidate.candidate_info.linenr or 1
-				-- end
-				-- linenr assigned in order: user-supplied count, extracted line number from buffer, or 1
 				linenr = (is_nextfile and user_count > 0 and count) or candidate.candidate_info.linenr or 1
 			end
 			M.try_open_file(candidate, is_gF, linenr)
