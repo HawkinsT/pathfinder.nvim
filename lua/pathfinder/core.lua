@@ -125,7 +125,7 @@ local function custom_gf(is_gF, count)
 		local cursor_idx = nil
 
 		-- Step 1: Identify the candidate under or nearest to the cursor and collect forward candidates.
-		for i, cand in ipairs(cand_list) do
+		for _, cand in ipairs(cand_list) do
 			local cand_start = cand.start_col - 1 -- 0-based
 			local cand_end = cand.finish - 1
 			if cand.lnum == cursor_line then
