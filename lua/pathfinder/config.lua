@@ -64,7 +64,6 @@ function M.update_config_for_buffer()
 end
 
 --- Sets up pathfinder with user configuration.
---- See |CONFIGURATION| for available options.
 ---@param user_config? table Optional table with configuration overrides.
 function M.setup(user_config)
 	user_config = user_config or {}
