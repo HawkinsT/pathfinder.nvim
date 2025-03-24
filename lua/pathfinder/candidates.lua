@@ -14,7 +14,7 @@ function M.deduplicate_candidates(candidates)
 	return unique
 end
 
-function M.strip_nested_enclosures(str, pairs)
+local function strip_nested_enclosures(str, pairs)
 	local removed = 0
 	while true do
 		local first = str:sub(1, 1)
@@ -53,7 +53,7 @@ function M.parse_filename_and_linenr(str)
 	return vim.trim(cleaned), nil
 end
 
-function M.find_next_opening(line, start_pos, openings)
+local function find_next_opening(line, start_pos, openings)
 	for pos = start_pos, #line do
 		for _, opening in ipairs(openings) do
 			local opening_len = #opening
@@ -65,7 +65,7 @@ function M.find_next_opening(line, start_pos, openings)
 	return nil, nil
 end
 
-function M.find_closing(line, start_pos, closing)
+local function find_closing(line, start_pos, closing)
 	local closing_len = #closing
 	for pos = start_pos, #line - closing_len + 1 do
 		if line:sub(pos, pos + closing_len - 1) == closing then
@@ -98,7 +98,7 @@ local function process_candidate_string(raw_str, lnum, start_col, min_col, base_
 		local piece = raw_str:sub(match_start, match_end)
 		local piece_leading = piece:match("^(%s*)") or ""
 		local trimmed_piece = vim.trim(piece)
-		local inner_str, inner_removed = M.strip_nested_enclosures(trimmed_piece, config.config.enclosure_pairs)
+		local inner_str, inner_removed = strip_nested_enclosures(trimmed_piece, config.config.enclosure_pairs)
 		local start_pos = inner_str:find("%S") or 1
 		local end_pos = #inner_str - #(inner_str:match("%s*$") or "")
 		local filename_str = inner_str:sub(start_pos, end_pos)
@@ -123,7 +123,7 @@ local function process_candidate_string(raw_str, lnum, start_col, min_col, base_
 	if search_pos == 1 then
 		local piece_leading = raw_str:match("^(%s*)") or ""
 		local trimmed_str = vim.trim(raw_str)
-		local inner_str, inner_removed = M.strip_nested_enclosures(trimmed_str, config.config.enclosure_pairs)
+		local inner_str, inner_removed = strip_nested_enclosures(trimmed_str, config.config.enclosure_pairs)
 		local start_pos = inner_str:find("%S") or 1
 		local end_pos = #inner_str - #(inner_str:match("%s*$") or "")
 		local filename_str = inner_str:sub(start_pos, end_pos)
@@ -232,7 +232,7 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words)
 	end)
 
 	while pos <= #line do
-		local open_pos, opening = M.find_next_opening(line, pos, openings)
+		local open_pos, opening = find_next_opening(line, pos, openings)
 
 		if open_pos then
 			if scan_unenclosed_words and (open_pos > pos) then
@@ -241,7 +241,7 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words)
 
 			local closing = enclosure_pairs[opening]
 			local content_start = open_pos + #opening
-			local close_pos = M.find_closing(line, content_start, closing)
+			local close_pos = find_closing(line, content_start, closing)
 
 			if close_pos then
 				local enclosed_str = line:sub(content_start, close_pos - 1)
