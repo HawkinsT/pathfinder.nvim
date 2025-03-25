@@ -8,11 +8,15 @@ local validation = require("pathfinder.validation")
 -- Helper: Build and execute the open command.
 local function execute_open_command(open_path, is_gF, linenr)
 	local cmd = config.config.open_mode
-	if is_gF and linenr then
-		cmd = cmd .. "+" .. linenr .. " "
+	if type(cmd) == "function" then
+		cmd(vim.fn.fnameescape(open_path), (is_gF and linenr) or nil)
+	else
+		if is_gF and linenr then
+			cmd = cmd .. "+" .. linenr .. " "
+		end
+		cmd = cmd .. vim.fn.fnameescape(open_path)
+		vim.cmd(cmd)
 	end
-	cmd = cmd .. vim.fn.fnameescape(open_path)
-	vim.cmd(cmd)
 end
 
 -- Helper: Check if the resolved file is the current file.

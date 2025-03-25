@@ -164,11 +164,20 @@ Default: `true` (boolean)
 
 							*pathfinder-open_mode*
 open_mode ~
-Default: `"edit"` (string)
+Default: `"edit"` (string|function)
 
-    Raw command to pass to Neovim when opening files. Typical options are
-    `"edit"`, `"split"`, `"vsplit"`, and `"tabnew"`. This is the command used
-    to open files when `gf` or `gF` is called.
+    Determines how Pathfinder opens files.
+
+    This setting accepts two types:
+
+      - `String`: any Ex‑command that opens a file, e.g. `"edit"`, `"vsplit"`.
+        Pathfinder will run:  
+          :{open_mode} [+<line>] <filepath>
+
+      - `Function` (filepath: string, linenr?: integer): receives the escaped
+	absolute path and an optional line number (nil if not supplied). You
+	may this to implement custom opening logic (notifications, external
+	tools, etc).
 
 					       *pathfinder-gF_count_behaviour*
 gF_count_behaviour ~
