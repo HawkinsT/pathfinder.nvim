@@ -2,13 +2,77 @@ local M = {}
 
 local config = require("pathfinder.config")
 
+-- Helper function to get the terminal's current working directory.
+local function get_terminal_cwd()
+	if vim.bo.buftype ~= "terminal" then
+		return nil
+	end
+
+	local job_id = vim.b.terminal_job_id
+	if not job_id then
+		return nil
+	end
+
+	local pid = vim.fn.jobpid(job_id)
+	if not pid then
+		return nil
+	end
+
+	-- Check for Linux (or WSL/Cygwin) using /proc filesystem.
+	if vim.fn.isdirectory("/proc/") == 1 then
+		local cwd = vim.fn.resolve("/proc/" .. pid .. "/cwd")
+		if cwd and vim.fn.isdirectory(cwd) == 1 then
+			return cwd
+		end
+	end
+
+	-- Fallback: use lsof (covers macOS and some BSD systems).
+	local lsof = io.popen("lsof -a -d cwd -p " .. pid .. " -Fn 2>/dev/null")
+	if lsof then
+		local result = lsof:read("*a")
+		lsof:close()
+		local cwd = result:match("^n(.+)")
+		if cwd and vim.fn.isdirectory(cwd) == 1 then
+			return cwd
+		end
+	end
+
+	-- For BSD variants: use procstat (FreeBSD) or fstat (others).
+	if vim.fn.has("bsd") == 1 then
+		local uv = vim.uv or vim.loop
+		local osname = uv.os_uname().sysname
+		local cmd = (osname == "FreeBSD") and ("procstat -f " .. pid .. " | awk '$5 == \"cwd\" {print $NF}'")
+			or ("fstat -p " .. pid .. " | awk '$6 == \"cwd\" {print $NF}'")
+		local handle = io.popen(cmd)
+		if handle then
+			local result = handle:read("*a")
+			handle:close()
+			local cwd = result:gsub("%s+$", "")
+			if cwd and vim.fn.isdirectory(cwd) == 1 then
+				return cwd
+			end
+		end
+	end
+
+	-- Couldn't resolve terminal cwd.
+	return nil
+end
+
 function M.resolve_file(file)
 	if file:sub(1, 1) == "~" then
 		return vim.fn.expand(file)
 	elseif file:sub(1, 1) == "/" or file:sub(2, 2) == ":" then
 		return file
 	end
-	local current_dir = vim.fn.expand("%:p:h")
+	local current_dir
+	if vim.bo.buftype == "terminal" then
+		current_dir = get_terminal_cwd()
+	else
+		current_dir = vim.fn.expand("%:p:h")
+	end
+	if not current_dir or current_dir == "" then
+		current_dir = vim.fn.getcwd()
+	end
 	return current_dir .. "/" .. file
 end
 
