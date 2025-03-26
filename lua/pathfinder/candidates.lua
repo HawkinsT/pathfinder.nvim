@@ -32,10 +32,11 @@ end
 
 --stylua: ignore
 M.patterns = {
-    { pattern = "(%S+)%s*%(%s*(%d+)%s*%)" }, -- e.g. "file (line)"
-    { pattern = "(%S+)%s*:%s*(%d+)" },       -- e.g. "file:line"
-    { pattern = "(%S+)%s*@%s*(%d+)" },       -- e.g. "file @ line"
-    { pattern = "(%S+)%s+(%d+)" },           -- e.g. "file line"
+    { pattern = "(%S+)%s*%(%s*(%d+)%s*%)" },          -- e.g. "file (line)"
+    { pattern = "(%S+)%s*:%s*(%d+)%s*:%s*(%d+)%S*" }, -- e.g. "file:line:column"
+    { pattern = "(%S+)%s*:%s*(%d+)%S*" },             -- e.g. "file:line"
+    { pattern = "(%S+)%s*@%s*(%d+)%S*" },             -- e.g. "file @ line"
+    { pattern = "(%S+)%s+(%d+)%S*" },                 -- e.g. "file line"
 }
 
 function M.parse_filename_and_linenr(str)
