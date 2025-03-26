@@ -1,6 +1,6 @@
 local M = {}
 
-M.version = "0.3.0"
+M.version = "0.3.1"
 
 local required_nvim_version = { major = 0, minor = 9, patch = 0 }
 
