@@ -110,7 +110,16 @@ local function custom_gf(is_gF, count)
 	local is_nextfile = config.config.gF_count_behaviour == "nextfile"
 	local candidate_index = (is_nextfile and is_gF) and 1 or ((count == 0) and 1 or count)
 	local cursor_line = vim.fn.line(".")
-	local cursor_col = vim.fn.col(".")
+	local cursor_col = vim.fn.col(".") - 1
+
+	if vim.bo.buftype == "terminal" and cursor_line > 1 then
+		local screen_width = vim.o.columns
+		-- If the previous line fills the screen, assume we're in a wrapped candidate.
+		while cursor_line > 1 and #vim.fn.getline(cursor_line - 1) >= screen_width do
+			cursor_line = cursor_line - 1
+			cursor_col = 1 -- reset column so we always scan from the start of the candidate.
+		end
+	end
 
 	-- When scanning for unenclosed words is disabled, try to process the file directly.
 	if not config.config.scan_unenclosed_words then

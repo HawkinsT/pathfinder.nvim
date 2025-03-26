@@ -1,5 +1,6 @@
 local M = {}
 local config = require("pathfinder.config")
+local utils = require("pathfinder.utils")
 
 function M.deduplicate_candidates(candidates)
 	local seen = {}
@@ -286,7 +287,9 @@ function M.collect_forward_candidates(cursor_line, cursor_col)
 	local forward_candidates = {}
 	local lines_searched = 0
 	local buffer_end = vim.fn.line("$")
-	for lnum = cursor_line, buffer_end do
+	local lnum = cursor_line
+
+	while lnum <= buffer_end do
 		local forward_limit = config.config.forward_limit
 		if forward_limit == -1 then
 			forward_limit = vim.fn.winheight(0) - vim.fn.winline() + 1
@@ -294,13 +297,19 @@ function M.collect_forward_candidates(cursor_line, cursor_col)
 		if forward_limit and lines_searched >= forward_limit then
 			break
 		end
-		local text = vim.fn.getline(lnum)
+
+		-- Use the shared utility to merge wrapped lines in terminal buffers.
+		local line_text, merged_end = utils.get_merged_line(lnum, buffer_end)
 		local min_col = (lnum == cursor_line) and cursor_col or nil
 		local scan_unenclosed_words = config.config.scan_unenclosed_words
-		local line_candidates = M.scan_line(text, lnum, min_col, scan_unenclosed_words)
+		local line_candidates = M.scan_line(line_text, lnum, min_col, scan_unenclosed_words)
 		vim.list_extend(forward_candidates, line_candidates)
 		lines_searched = lines_searched + 1
+
+		-- Advance lnum to the line after the merged block.
+		lnum = merged_end + 1
 	end
+
 	return M.deduplicate_candidates(forward_candidates)
 end
 

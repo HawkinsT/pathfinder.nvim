@@ -4,6 +4,7 @@ local config = require("pathfinder.config")
 local candidates = require("pathfinder.candidates")
 local validation = require("pathfinder.validation")
 local core = require("pathfinder.core")
+local utils = require("pathfinder.utils")
 
 local function set_default_highlight(group, default)
 	local ok, current = pcall(vim.api.nvim_get_hl, 0, { name = group, link = false })
@@ -33,21 +34,23 @@ function M.select_file()
 	local function collect_candidates(win_start, win_end)
 		local all_candidates = {}
 		local line_num = win_start
+
 		while line_num <= win_end do
 			-- Don't scan folded blocks.
 			if vim.fn.foldclosed(line_num) ~= -1 then
 				line_num = vim.fn.foldclosedend(line_num) + 1
 			else
-				local line_text = vim.fn.getline(line_num)
+				local line_text, merged_end = utils.get_merged_line(line_num, win_end)
 				local scan_unenclosed_words = config.config.scan_unenclosed_words
 				local line_candidates = candidates.scan_line(line_text, line_num, 1, scan_unenclosed_words)
-
 				for _, candidate in ipairs(line_candidates) do
+					candidate.merged_end = merged_end
 					table.insert(all_candidates, candidate)
 				end
-				line_num = line_num + 1
+				line_num = merged_end + 1
 			end
 		end
+
 		return all_candidates
 	end
 
@@ -77,9 +80,20 @@ function M.select_file()
 
 			finish_col = finish_col + (ci.escaped_space_count or 0)
 
-			-- Clamp finish_col to the line length to prevent out-of-range errors.
-			local line_text = vim.fn.getline(ci.lnum)
-			finish_col = math.min(finish_col, #line_text)
+			-- If we're in a terminal buffer, clamp the columns to the physical line’s length.
+			local physical_line = vim.fn.getline(ci.lnum)
+			local phys_len = #physical_line
+			if vim.bo.buftype == "terminal" then
+				if start_col >= phys_len then
+					-- If the candidate starts past the end of the physical
+					-- line, adjust start_col to the last valid column.
+					start_col = phys_len - 1
+				end
+				finish_col = math.min(finish_col, phys_len)
+			else
+				finish_col = math.min(finish_col, phys_len)
+			end
+
 			local display_label = input_prefix and candidate.label:sub(#input_prefix + 1) or candidate.label
 			local virt_text = {}
 			if #display_label > 0 then

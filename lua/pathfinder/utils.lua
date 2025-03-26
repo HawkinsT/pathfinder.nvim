@@ -121,4 +121,28 @@ function M.get_combined_suffixes()
 	return unique_exts
 end
 
+--- Returns a merged 'logical' line from physical lines in a terminal buffer.
+--- For non-terminal buffers it returns the current line unmodified.
+function M.get_merged_line(start_lnum, end_lnum)
+	if vim.bo.buftype ~= "terminal" then
+		return vim.fn.getline(start_lnum), start_lnum
+	end
+
+	local merged = ""
+	local lnum = start_lnum
+	local screen_width = vim.o.columns
+
+	while lnum <= end_lnum do
+		local line = vim.fn.getline(lnum)
+		merged = merged .. line
+		-- Stop merging if the line is shorter than the screen width (end of logical line)
+		if #line < screen_width then
+			break
+		end
+		lnum = lnum + 1
+	end
+
+	return merged, lnum
+end
+
 return M
