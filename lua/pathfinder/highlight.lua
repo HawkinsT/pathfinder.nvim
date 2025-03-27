@@ -13,7 +13,7 @@ local function set_default_highlight(group, default)
 	end
 end
 
-function M.select_file()
+local function select_file(is_gF)
 	local candidate_highlight_group = "PathfinderHighlight"
 	local dim_group = "PathfinderDim"
 	local next_key_group = "PathfinderNextKey"
@@ -222,7 +222,8 @@ function M.select_file()
 					vim.api.nvim_buf_clear_namespace(current_buffer, dim_ns, 0, -1)
 					vim.cmd("redraw")
 					vim.schedule(function()
-						core.try_open_file(matching_candidates[1], false, 1)
+            local linenr = matching_candidates[1].candidate_info.linenr
+            core.try_open_file(matching_candidates[1], is_gF, linenr or 1)
 					end)
 					break
 				elseif #user_input < required_length then
@@ -258,5 +259,14 @@ function M.select_file()
 	cand_list = candidates.deduplicate_candidates(cand_list)
 	validate_candidates(1, cand_list)
 end
+
+function M.select_file_line()
+  select_file(true)
+end
+
+function M.select_file()
+  select_file(false)
+end
+
 
 return M
