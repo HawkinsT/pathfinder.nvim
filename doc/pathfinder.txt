@@ -13,7 +13,8 @@ Configuration ...................................... |pathfinder-configuration|
     File Resolution .............................. |pathfinder-file-resolution|
     User Interaction ............................ |pathfinder-user-interaction|
 Functions .............................................. |pathfinder-functions|
-    select_file() .................................. |pathfinder-select-files|
+    select_file() .................................. |pathfinder-select_file|
+    select_file_line() ........................ |pathfinder-select_file_line|
 Filetype Overrides ............................ |pathfinder-filetype-overrides|
 Custom Key Mappings .............................. |pathfinder-custom-key-maps|
 
