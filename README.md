@@ -57,7 +57,7 @@ Pathfinder works out of the box by enhancing `gf` and `gF`. Here’s how it beha
 
 If multiple files match (e.g. `eval.c` and `eval.h`), Pathfinder prompts you to choose, unless configured to always select the first match.
 
-For a more visual workflow, you may use the `select_file()` or `select_file_line` function, mapped to `<leader>gf` and `leader<gF>` by default, which is inspired by [EasyMotion](https://github.com/easymotion/vim-easymotion) and [Hop](https://github.com/hadronized/hop.nvim).
+For a more visual workflow, you may use the `select_file()` or `select_file_line()` function, mapped to `<leader>gf` and `leader<gF>` by default, which is inspired by [EasyMotion](https://github.com/easymotion/vim-easymotion) and [Hop](https://github.com/hadronized/hop.nvim).
 
 This displays all visible files in the buffer, letting you pick one with minimal keypresses.
 
