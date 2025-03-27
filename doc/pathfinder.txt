@@ -124,7 +124,7 @@ Defaults ~
 						 *pathfinder-highlight-groups*
 Highlight Groups ~
 
-The |select_file| function uses the following default highlight groups, which
+The |select_file| and |select_file_line| functions use the following default highlight groups, which
 may be overridden:
 
 >lua
@@ -304,6 +304,21 @@ See |pathfinder-highlight-groups|.
 Note that |offer_multiple_options| isn't currently implemented with this
 function.
 
+
+						     *pathfinder-select_file_line*
+select_file_line() ~
+Inspired by plugins such as `EasyMotion` and `Hop`, this function displays all
+visible valid files in the current buffer and allows the user to select which
+one to open on line based on motion targets. 
+This function is mapped to `<leader>gF` by default.
+
+The colour scheme used by this function is configurable via highlight groups.
+See |pathfinder-highlight-groups|.
+
+Note that |offer_multiple_options| isn't currently implemented with this
+function.
+
+
 ==============================================================================
 					       *pathfinder-filetype-overrides*
 FILETYPE OVERRIDES
@@ -330,5 +345,6 @@ setting your own key mappings. For example:
  vim.keymap.set('n', 'gf', require('pathfinder').gf)
  vim.keymap.set('n', 'gF', require('pathfinder').gF)
  vim.keymap.set('n', '<leader>gf', require('pathfinder').select_file)
+ vim.keymap.set('n', '<leader>gF', require('pathfinder').select_file_line)
 <
 vim:tw=78:ts=8:noet:ft=help:norl:

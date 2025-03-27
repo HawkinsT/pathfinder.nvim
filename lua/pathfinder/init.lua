@@ -68,6 +68,7 @@ if ensure_neovim_version() then
 	M.gf = core.gf
 	M.gF = core.gF
 	M.select_file = highlight.select_file
+	M.select_file_line = highlight.select_file_line
 
 	local function setup_autocommands()
 		vim.api.nvim_create_autocmd({ "FileType", "BufEnter", "VimEnter" }, {
@@ -81,6 +82,7 @@ if ensure_neovim_version() then
 			vim.keymap.set("n", "gf", M.gf, { silent = true, desc = "Enhanced go to file" })
 			vim.keymap.set("n", "gF", M.gF, { silent = true, desc = "Enhanced go to file (line)" })
 			vim.keymap.set("n", "<leader>gf", M.select_file, { silent = true, desc = "Visual file selection" })
+			vim.keymap.set("n", "<leader>gF", M.select_file_line, { silent = true, desc = "Visual file selection (line)" })
 		end
 	end
 
@@ -93,6 +95,7 @@ else
 	M.gf = noop
 	M.gF = noop
 	M.select_file = noop
+	M.select_file_line = noop
 end
 
 return M
