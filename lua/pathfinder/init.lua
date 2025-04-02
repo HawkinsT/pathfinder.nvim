@@ -82,7 +82,12 @@ if ensure_neovim_version() then
 			vim.keymap.set("n", "gf", M.gf, { silent = true, desc = "Enhanced go to file" })
 			vim.keymap.set("n", "gF", M.gF, { silent = true, desc = "Enhanced go to file (line)" })
 			vim.keymap.set("n", "<leader>gf", M.select_file, { silent = true, desc = "Visual file selection" })
-			vim.keymap.set("n", "<leader>gF", M.select_file_line, { silent = true, desc = "Visual file selection (line)" })
+			vim.keymap.set(
+				"n",
+				"<leader>gF",
+				M.select_file_line,
+				{ silent = true, desc = "Visual file selection (line)" }
+			)
 		end
 	end
 

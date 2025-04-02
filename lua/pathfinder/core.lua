@@ -44,7 +44,7 @@ function M.try_open_file(valid_candidate, is_gF, linenr)
 
 	local current_bufnr = vim.api.nvim_get_current_buf()
 	local target_bufnr = vim.fn.bufnr(vim.fn.fnameescape(open_path))
-	if target_bufnr ~= -1 and target_bufnr == current_bufnr then
+	if target_bufnr == current_bufnr then
 		if is_gF and linenr then
 			vim.api.nvim_win_set_cursor(0, { linenr, 0 })
 		else

@@ -37,7 +37,7 @@ local function get_terminal_cwd()
 		end
 	end
 
-	-- For BSD variants: use procstat (FreeBSD) or fstat (others).
+	-- For BSD variants (if lsof fails): use procstat (FreeBSD) or fstat (others).
 	if vim.fn.has("bsd") == 1 then
 		local uv = vim.uv or vim.loop
 		local osname = uv.os_uname().sysname

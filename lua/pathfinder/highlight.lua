@@ -6,10 +6,10 @@ local validation = require("pathfinder.validation")
 local core = require("pathfinder.core")
 local utils = require("pathfinder.utils")
 
-local function set_default_highlight(group, default)
-	local ok, current = pcall(vim.api.nvim_get_hl, 0, { name = group, link = false })
-	if not ok or vim.tbl_isempty(current) then
-		vim.api.nvim_set_hl(0, group, default)
+local function set_default_highlight(group, default_opts)
+	local ok, current_hl = pcall(vim.api.nvim_get_hl, 0, { name = group, link = false })
+	if not ok or vim.tbl_isempty(current_hl) then
+		vim.api.nvim_set_hl(0, group, default_opts)
 	end
 end
 
@@ -24,34 +24,39 @@ local function select_file(is_gF)
 	set_default_highlight(next_key_group, { fg = "#FF00FF", bg = "none" })
 	set_default_highlight(future_key_group, { fg = "#BB00AA", bg = "none" })
 
-	local highlight_ns = vim.api.nvim_create_namespace("pathfinder-highlight")
-	local dim_ns = vim.api.nvim_create_namespace("pathfinder-dim")
+	local highlight_ns = vim.api.nvim_create_namespace("pathfinder_highlight")
+	local dim_ns = vim.api.nvim_create_namespace("pathfinder_dim")
 	local current_buffer = vim.api.nvim_get_current_buf()
 	local window_start = vim.fn.line("w0")
 	local window_end = vim.fn.line("w$")
 	local selection_keys = config.config.selection_keys
 
-	local function collect_candidates(win_start, win_end)
-		local all_candidates = {}
-		local line_num = win_start
+	local function collect_candidates()
+		-- Shouldn't ever occur but defence against possible edge cases.
+		if not window_start or not window_end or window_start <= 0 or window_end < window_start then
+			return {}
+		end
 
-		while line_num <= win_end do
+		local all_visible_candidates = {}
+		local line_num = window_start
+
+		while line_num <= window_end do
 			-- Don't scan folded blocks.
 			if vim.fn.foldclosed(line_num) ~= -1 then
 				line_num = vim.fn.foldclosedend(line_num) + 1
 			else
-				local line_text, merged_end = utils.get_merged_line(line_num, win_end)
+				local line_text, merged_end_line_num = utils.get_merged_line(line_num, window_end)
 				local scan_unenclosed_words = config.config.scan_unenclosed_words
 				local line_candidates = candidates.scan_line(line_text, line_num, 1, scan_unenclosed_words)
 				for _, candidate in ipairs(line_candidates) do
-					candidate.merged_end = merged_end
-					table.insert(all_candidates, candidate)
+					candidate.merged_end_line_num = merged_end_line_num
+					table.insert(all_visible_candidates, candidate)
 				end
-				line_num = merged_end + 1
+				line_num = merged_end_line_num + 1
 			end
 		end
 
-		return all_candidates
+		return all_visible_candidates
 	end
 
 	local function update_highlights(active_candidates, input_prefix)
@@ -72,11 +77,6 @@ local function select_file(is_gF)
 			local ci = candidate.candidate_info
 			local start_col = ci.start_col - 1
 			local finish_col = ci.finish - 1
-
-			if ci.type == "enclosures" and ci.opening_delim and not ci.no_delimiter_adjustment then
-				start_col = start_col + #ci.opening_delim
-				finish_col = finish_col - (#ci.closing_delim or 0)
-			end
 
 			finish_col = finish_col + (ci.escaped_space_count or 0)
 
@@ -222,8 +222,8 @@ local function select_file(is_gF)
 					vim.api.nvim_buf_clear_namespace(current_buffer, dim_ns, 0, -1)
 					vim.cmd("redraw")
 					vim.schedule(function()
-            local linenr = matching_candidates[1].candidate_info.linenr
-            core.try_open_file(matching_candidates[1], is_gF, linenr or 1)
+						local linenr = matching_candidates[1].candidate_info.linenr
+						core.try_open_file(matching_candidates[1], is_gF, linenr or 1)
 					end)
 					break
 				elseif #user_input < required_length then
@@ -255,18 +255,17 @@ local function select_file(is_gF)
 		end, true)
 	end
 
-	local cand_list = collect_candidates(window_start, window_end)
+	local cand_list = collect_candidates()
 	cand_list = candidates.deduplicate_candidates(cand_list)
 	validate_candidates(1, cand_list)
 end
 
 function M.select_file_line()
-  select_file(true)
+	select_file(true)
 end
 
 function M.select_file()
-  select_file(false)
+	select_file(false)
 end
-
 
 return M
