@@ -45,9 +45,10 @@ local function select_file(is_gF)
 			if vim.fn.foldclosed(line_num) ~= -1 then
 				line_num = vim.fn.foldclosedend(line_num) + 1
 			else
-				local line_text, merged_end_line_num = utils.get_merged_line(line_num, window_end)
+				local line_text, merged_end_line_num, physical_lines = utils.get_merged_line(line_num, window_end)
 				local scan_unenclosed_words = config.config.scan_unenclosed_words
-				local line_candidates = candidates.scan_line(line_text, line_num, 1, scan_unenclosed_words)
+				local line_candidates =
+					candidates.scan_line(line_text, line_num, 1, scan_unenclosed_words, physical_lines)
 				for _, candidate in ipairs(line_candidates) do
 					candidate.merged_end_line_num = merged_end_line_num
 					table.insert(all_visible_candidates, candidate)
@@ -75,25 +76,6 @@ local function select_file(is_gF)
 
 		for _, candidate in ipairs(active_candidates) do
 			local ci = candidate.candidate_info
-			local start_col = ci.start_col - 1
-			local finish_col = ci.finish - 1
-
-			finish_col = finish_col + (ci.escaped_space_count or 0)
-
-			-- If we're in a terminal buffer, clamp the columns to the physical line’s length.
-			local physical_line = vim.fn.getline(ci.lnum)
-			local phys_len = #physical_line
-			if vim.bo.buftype == "terminal" then
-				if start_col >= phys_len then
-					-- If the candidate starts past the end of the physical
-					-- line, adjust start_col to the last valid column.
-					start_col = phys_len - 1
-				end
-				finish_col = math.min(finish_col, phys_len)
-			else
-				finish_col = math.min(finish_col, phys_len)
-			end
-
 			local display_label = input_prefix and candidate.label:sub(#input_prefix + 1) or candidate.label
 			local virt_text = {}
 			if #display_label > 0 then
@@ -103,13 +85,20 @@ local function select_file(is_gF)
 				end
 			end
 
-			vim.api.nvim_buf_set_extmark(current_buffer, highlight_ns, ci.lnum - 1, start_col, {
-				virt_text = virt_text,
-				virt_text_pos = "overlay",
-				hl_group = candidate_highlight_group,
-				end_col = finish_col,
-				priority = 10001,
-			})
+			-- Highlight all spans of the candidate
+			for i, span in ipairs(ci.spans) do
+				local opts = {
+					hl_group = candidate_highlight_group,
+					end_col = span.finish_col + 1, -- end_col is exclusive
+					priority = 10001,
+				}
+				-- Add virtual text only to the first span
+				if i == 1 and #virt_text > 0 then
+					opts.virt_text = virt_text
+					opts.virt_text_pos = "overlay"
+				end
+				vim.api.nvim_buf_set_extmark(current_buffer, highlight_ns, span.lnum - 1, span.start_col, opts)
+			end
 		end
 		vim.cmd("redraw")
 	end

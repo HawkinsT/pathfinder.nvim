@@ -125,24 +125,29 @@ end
 --- For non-terminal buffers it returns the current line unmodified.
 function M.get_merged_line(start_lnum, end_lnum)
 	if vim.bo.buftype ~= "terminal" then
-		return vim.fn.getline(start_lnum), start_lnum
+		local text = vim.fn.getline(start_lnum)
+		return text, start_lnum, { { lnum = start_lnum, start_pos = 1, length = #text } }
 	end
 
 	local merged = ""
+	local physical_lines = {}
 	local lnum = start_lnum
 	local screen_width = vim.o.columns
+	local pos = 1
 
 	while lnum <= end_lnum do
 		local line = vim.fn.getline(lnum)
+		local line_length = #line
 		merged = merged .. line
-		-- Stop merging if the line is shorter than the screen width (end of logical line)
-		if #line < screen_width then
+		table.insert(physical_lines, { lnum = lnum, start_pos = pos, length = line_length })
+		pos = pos + line_length
+		if line_length < screen_width then
 			break
 		end
 		lnum = lnum + 1
 	end
 
-	return merged, lnum
+	return merged, lnum, physical_lines
 end
 
 return M
