@@ -39,6 +39,21 @@ M.patterns = {
     { pattern = "(%S+)%s+(%d+)%S*" },                 -- e.g. "file line"
 }
 
+--stylua: ignore
+M.trailing_patterns = {
+    { pattern = "^%s*,?%s*line%s+(%d+)" },  -- e.g. ", line 168"
+}
+
+function M.parse_trailing_line_number(str)
+	for _, pat in ipairs(M.trailing_patterns) do
+		local match_s, match_e, line_str = str:find(pat.pattern)
+		if match_s then
+			return tonumber(line_str), match_e
+		end
+	end
+	return nil, nil
+end
+
 function M.parse_filename_and_linenr(str)
 	str = str:gsub("\\ ", " ")
 
@@ -79,7 +94,7 @@ end
 
 local function calculate_spans(start, finish, physical_lines, lnum)
 	if not physical_lines then
-		-- Fallback for non-terminal buffers or missing physical_lines: single span
+		-- Fallback for non-terminal buffers or missing physical_lines to single span.
 		return { { lnum = lnum, start_col = start - 1, finish_col = finish - 1 } }
 	end
 	local spans = {}
@@ -89,7 +104,7 @@ local function calculate_spans(start, finish, physical_lines, lnum)
 		if pl_start <= finish and pl_end >= start then
 			local span_start = math.max(start, pl_start)
 			local span_end = math.min(finish, pl_end)
-			-- Convert to 0-based columns for Neovim API
+			-- Convert to 0-based columns for Neovim API.
 			local line_start_col = span_start - pl_start
 			local line_finish_col = span_end - pl_start
 			table.insert(spans, { lnum = pl.lnum, start_col = line_start_col, finish_col = line_finish_col })
@@ -329,7 +344,18 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 					cand.spans = calculate_spans(cand.start_col, cand.finish - 1, physical_lines, lnum)
 					table.insert(results, cand)
 				end
-				pos = close_pos + #closing
+				do
+					local trailing_text = line:sub(close_pos + #closing)
+					local line_number, consumed = M.parse_trailing_line_number(trailing_text)
+					if line_number then
+						for _, cand in ipairs(candidates_in_enclosure) do
+							cand.linenr = line_number
+						end
+						pos = close_pos + #closing + (consumed or 0)
+					else
+						pos = close_pos + #closing
+					end
+				end
 			else
 				if scan_unenclosed_words then
 					order = parse_words_in_segment(
