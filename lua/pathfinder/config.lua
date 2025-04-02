@@ -33,33 +33,58 @@ M.config = vim.deepcopy(M.default_config)
 --- Suffix cache for each buffer (used to avoid recomputing extension lists).
 M.suffix_cache = {}
 
+--- Helper to compute and cache the sorted list of opening delimiters.
+local function update_cached_openings(cfg)
+	local openings = {}
+	if cfg.enclosure_pairs then
+		for opening, _ in pairs(cfg.enclosure_pairs) do
+			table.insert(openings, opening)
+		end
+		table.sort(openings, function(a, b)
+			return #a > #b
+		end)
+	end
+	cfg._cached_openings = openings
+end
+
+--- Updates the active configuration (M.config) based on defaults, filetype,
+--- and ft_overrides (in reverse order of precedence) for the current buffer.
 function M.update_config_for_buffer()
 	local bufnr = vim.api.nvim_get_current_buf()
-	M.config = vim.deepcopy(M.default_config)
+	local current_config = vim.deepcopy(M.default_config)
+	current_config.ft_overrides = M.default_config.ft_overrides or {}
 
-	local ft = vim.bo.filetype
+	local ft = vim.bo[bufnr].filetype
 	if ft and ft ~= "" then
-		local ok, ft_module = pcall(require, "pathfinder.ft." .. ft)
-		if ok and ft_module and ft_module.config then
-			if ft_module.config.enclosure_pairs then
-				M.config.enclosure_pairs = vim.deepcopy(ft_module.config.enclosure_pairs)
+		-- Apply built-in ft module settings (overwrite defaults).
+		local ft_ok, ft_module = pcall(require, "pathfinder.ft." .. ft)
+		if ft_ok and ft_module and ft_module.config then
+			for key, value in pairs(ft_module.config) do
+				current_config[key] = vim.deepcopy(value)
 			end
-			M.config = vim.tbl_deep_extend("force", M.config, ft_module.config)
+		end
+
+		-- Apply user ft_overrides (overwrite defaults and ft module settings).
+		local user_override_for_ft = M.default_config.ft_overrides[ft]
+		if user_override_for_ft then
+			for key, value in pairs(user_override_for_ft) do
+				current_config[key] = vim.deepcopy(value)
+			end
 		end
 	end
 
-	if ft and M.config.ft_overrides[ft] then
-		local override = M.config.ft_overrides[ft]
-		if override.enclosure_pairs then
-			M.config.enclosure_pairs = vim.deepcopy(override.enclosure_pairs)
-		end
-		M.config = vim.tbl_deep_extend("force", M.config, override)
+	-- Finalize active config.
+	M.config = current_config
+
+	-- Apply buffer-local settings based on the finalized config.
+	local includeexpr_target = M.config.includeexpr
+	if includeexpr_target and includeexpr_target ~= "" then
+		vim.api.nvim_set_option_value("includeexpr", includeexpr_target, { scope = "local", buf = bufnr })
+	else
 	end
 
-	if M.config.includeexpr ~= "" then
-		vim.opt_local.includeexpr = M.config.includeexpr
-	end
-
+	-- Update derived/cached values
+	update_cached_openings(M.config)
 	M.suffix_cache[bufnr] = nil
 end
 
