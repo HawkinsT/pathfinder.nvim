@@ -3,15 +3,53 @@ local config = require("pathfinder.config")
 local utils = require("pathfinder.utils")
 
 function M.deduplicate_candidates(candidates)
-	local seen = {}
-	local unique = {}
+	local merged = {}
 	for _, cand in ipairs(candidates) do
-		local key = string.format("%d:%d:%s", cand.lnum, cand.finish, cand.filename)
-		if not seen[key] then
-			table.insert(unique, cand)
-			seen[key] = true
+		-- Group by line number and filename.
+		local key = string.format("%d:%s", cand.lnum, cand.filename)
+		if not merged[key] then
+			merged[key] = { cand }
+		else
+			local group = merged[key]
+			local found = false
+			for _, existing in ipairs(group) do
+				-- Merge candidates if their start columns are nearly identical.
+				if math.abs(cand.start_col - existing.start_col) <= 2 then
+					found = true
+					-- If overlapping candidate lacks a valid line number and
+					-- the other has one, assign it.
+					if not existing.linenr and cand.linenr then
+						existing.linenr = cand.linenr
+						existing.line_nr_spans = cand.line_nr_spans
+					end
+					-- Update finish and spans if this candidate covers a larger region.
+					if cand.finish > existing.finish then
+						existing.finish = cand.finish
+						existing.spans = cand.spans
+					end
+					break
+				end
+			end
+			if not found then
+				table.insert(group, cand)
+			end
 		end
 	end
+
+	local unique = {}
+	for _, group in pairs(merged) do
+		for _, cand in ipairs(group) do
+			table.insert(unique, cand)
+		end
+	end
+
+	table.sort(unique, function(a, b)
+		if a.lnum ~= b.lnum then
+			return a.lnum < b.lnum
+		else
+			return a.start_col < b.start_col
+		end
+	end)
 	return unique
 end
 
@@ -384,8 +422,7 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 		end
 	end
 
-	-- 2. Handle enclosures only for segments not already matched, e.g. after
-	-- filename (line) has been checked.
+	-- 2: Process remaining text with enclosures, skipping already matched regions.
 	local pos = 1
 	local enclosure_pairs = config.config.enclosure_pairs
 	local openings = config.config._cached_openings or {}
@@ -432,42 +469,29 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 				for _, cand in ipairs(candidates_in_enclosure) do
 					order = order + 1
 					cand.order = order
-					cand.no_delimiter_adjustment = false
 					cand.type = "enclosures"
 					cand.spans = calculate_spans(cand.start_col, cand.finish - 1, physical_lines, lnum)
 					table.insert(results, cand)
 				end
-				do
-					local trailing_text = line:sub(close_pos + #closing)
-					local line_number, consumed = M.parse_trailing_line_number(trailing_text)
-					if line_number then
-						for _, cand in ipairs(candidates_in_enclosure) do
-							cand.linenr = line_number
-							local tmatch_s = trailing_text:find("%d+")
-							if tmatch_s then
-								local abs_ln_start = close_pos + #closing + tmatch_s - 1
-								local abs_ln_end = abs_ln_start + #tostring(line_number) - 1
-								cand.line_nr_spans = calculate_spans(abs_ln_start, abs_ln_end, physical_lines, lnum)
-							end
+
+				-- Handle trailing line numbers.
+				local trailing_text = line:sub(close_pos + #closing)
+				local line_number, consumed = M.parse_trailing_line_number(trailing_text)
+				if line_number then
+					for _, cand in ipairs(candidates_in_enclosure) do
+						cand.linenr = line_number
+						local tmatch_s = trailing_text:find("%d+")
+						if tmatch_s then
+							local abs_ln_start = close_pos + #closing + tmatch_s - 1
+							local abs_ln_end = abs_ln_start + #tostring(line_number) - 1
+							cand.line_nr_spans = calculate_spans(abs_ln_start, abs_ln_end, physical_lines, lnum)
 						end
-						pos = close_pos + #closing + (consumed or 0)
-					else
-						pos = close_pos + #closing
 					end
+					pos = close_pos + #closing + (consumed or 0)
+				else
+					pos = close_pos + #closing
 				end
 			else
-				if scan_unenclosed_words then
-					order = parse_words_in_segment(
-						line,
-						open_pos,
-						open_pos + #opening - 1,
-						lnum,
-						min_col,
-						results,
-						order,
-						physical_lines
-					)
-				end
 				pos = open_pos + #opening
 			end
 		else

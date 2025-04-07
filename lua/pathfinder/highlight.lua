@@ -87,15 +87,15 @@ local function select_file(is_gF)
 				end
 			end
 
-			-- Highlight all spans of the candidate
+			-- Highlight all spans of the candidate.
 			if ci.file_spans then
 				for i, span in ipairs(ci.file_spans) do
 					local opts = {
 						hl_group = candidate_highlight_group,
-						end_col = span.finish_col + 1, -- end_col is exclusive
+						end_col = span.finish_col + 1,
 						priority = 10001,
 					}
-					-- Add virtual text only to the first span
+					-- Add virtual text only to the first span.
 					if i == 1 and #virt_text > 0 then
 						opts.virt_text = virt_text
 						opts.virt_text_pos = "overlay"
