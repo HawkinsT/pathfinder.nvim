@@ -152,6 +152,21 @@ local function create_candidate_from_piece(piece, lnum, base_col, min_col, escap
 				escaped_space_count = escaped_space_count,
 			}
 			candidate.spans = calculate_spans(cand_start_col, cand_finish_col - 1, physical_lines, lnum)
+			local file_sub_start = filename_str:find(filename, 1, true)
+			if file_sub_start then
+				local file_col_start = cand_start_col + file_sub_start - 1
+				local file_col_end = file_col_start + #filename - 1 + escaped_space_count
+				candidate.file_spans = calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
+			end
+			if linenr then
+				local linenr_str = tostring(linenr)
+				local ln_sub_start = filename_str:find(linenr_str, 1, true)
+				if ln_sub_start then
+					local ln_col_start = cand_start_col + ln_sub_start - 1
+					local ln_col_end = ln_col_start + #linenr_str - 1
+					candidate.line_nr_spans = calculate_spans(ln_col_start, ln_col_end, physical_lines, lnum)
+				end
+			end
 			return candidate
 		end
 	end
@@ -245,13 +260,29 @@ local function parse_words_in_segment(line, start_pos, end_pos, lnum, min_col, r
 			local abs_finish_col = start_pos + match_e - 1
 			if not min_col or abs_finish_col >= min_col then
 				if filename and filename ~= "" and linenr_str then
-					table.insert(structured_matches, {
+					local matched_text = segment:sub(match_s, match_e)
+					local match_item = {
 						filename = filename,
 						lnum = lnum,
 						start_col = abs_start_col,
 						finish = abs_finish_col,
 						linenr = tonumber(linenr_str),
-					})
+					}
+					local file_sub_start = matched_text:find(filename, 1, true)
+					if file_sub_start then
+						local file_col_start = abs_start_col + file_sub_start - 1
+						local file_col_end = file_col_start + #filename - 1
+						match_item.file_spans = calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
+					end
+					if linenr_str then
+						local ln_sub_start = matched_text:find(linenr_str, 1, true)
+						if ln_sub_start then
+							local ln_col_start = abs_start_col + ln_sub_start - 1
+							local ln_col_end = ln_col_start + #linenr_str - 1
+							match_item.line_nr_spans = calculate_spans(ln_col_start, ln_col_end, physical_lines, lnum)
+						end
+					end
+					table.insert(structured_matches, match_item)
 				end
 			end
 			search_offset = match_e + 1
@@ -348,8 +379,25 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 					local trailing_text = line:sub(close_pos + #closing)
 					local line_number, consumed = M.parse_trailing_line_number(trailing_text)
 					if line_number then
-						for _, cand in ipairs(candidates_in_enclosure) do
-							cand.linenr = line_number
+						local tmatch_s, _, tline_str = trailing_text:find(M.trailing_patterns[1].pattern)
+						if tmatch_s then
+							local ln_sub_start = trailing_text:find(tline_str, tmatch_s, true)
+							if ln_sub_start then
+								local abs_ln_start = close_pos + #closing + ln_sub_start - 1
+								local abs_ln_end = abs_ln_start + #tline_str - 1
+								for _, cand in ipairs(candidates_in_enclosure) do
+									cand.line_nr_spans = calculate_spans(abs_ln_start, abs_ln_end, physical_lines, lnum)
+									cand.linenr = line_number
+								end
+							else
+								for _, cand in ipairs(candidates_in_enclosure) do
+									cand.linenr = line_number
+								end
+							end
+						else
+							for _, cand in ipairs(candidates_in_enclosure) do
+								cand.linenr = line_number
+							end
 						end
 						pos = close_pos + #closing + (consumed or 0)
 					else

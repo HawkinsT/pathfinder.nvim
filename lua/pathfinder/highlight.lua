@@ -15,6 +15,7 @@ end
 
 local function select_file(is_gF)
 	local candidate_highlight_group = "PathfinderHighlight"
+	local line_nr_highlight_group = "PathfinderNumberHighlight"
 	local dim_group = "PathfinderDim"
 	local next_key_group = "PathfinderNextKey"
 	local future_key_group = "PathfinderFutureKeys"
@@ -23,6 +24,7 @@ local function select_file(is_gF)
 	set_default_highlight(dim_group, { fg = "#808080", bg = "none" })
 	set_default_highlight(next_key_group, { fg = "#FF00FF", bg = "none" })
 	set_default_highlight(future_key_group, { fg = "#BB00AA", bg = "none" })
+	set_default_highlight(line_nr_highlight_group, { fg = "#00FF00", bg = "none" })
 
 	local highlight_ns = vim.api.nvim_create_namespace("pathfinder_highlight")
 	local dim_ns = vim.api.nvim_create_namespace("pathfinder_dim")
@@ -86,18 +88,30 @@ local function select_file(is_gF)
 			end
 
 			-- Highlight all spans of the candidate
-			for i, span in ipairs(ci.spans) do
-				local opts = {
-					hl_group = candidate_highlight_group,
-					end_col = span.finish_col + 1, -- end_col is exclusive
-					priority = 10001,
-				}
-				-- Add virtual text only to the first span
-				if i == 1 and #virt_text > 0 then
-					opts.virt_text = virt_text
-					opts.virt_text_pos = "overlay"
+			if ci.file_spans then
+				for i, span in ipairs(ci.file_spans) do
+					local opts = {
+						hl_group = candidate_highlight_group,
+						end_col = span.finish_col + 1, -- end_col is exclusive
+						priority = 10001,
+					}
+					-- Add virtual text only to the first span
+					if i == 1 and #virt_text > 0 then
+						opts.virt_text = virt_text
+						opts.virt_text_pos = "overlay"
+					end
+					vim.api.nvim_buf_set_extmark(current_buffer, highlight_ns, span.lnum - 1, span.start_col, opts)
 				end
-				vim.api.nvim_buf_set_extmark(current_buffer, highlight_ns, span.lnum - 1, span.start_col, opts)
+			end
+
+			if is_gF and ci.line_nr_spans then
+				for _, span in ipairs(ci.line_nr_spans) do
+					vim.api.nvim_buf_set_extmark(current_buffer, highlight_ns, span.lnum - 1, span.start_col, {
+						hl_group = line_nr_highlight_group,
+						end_col = span.finish_col + 1,
+						priority = 10001,
+					})
+				end
 			end
 		end
 		vim.cmd("redraw")
@@ -179,7 +193,6 @@ local function select_file(is_gF)
 
 		while #user_input < required_length do
 			local _, key = pcall(vim.fn.getchar)
-
 			local backspace_termcode = vim.api.nvim_replace_termcodes("<BS>", true, false, true)
 			local is_backspace = key == 8 or key == 127 or (type(key) == "string" and key == backspace_termcode)
 			if is_backspace then
