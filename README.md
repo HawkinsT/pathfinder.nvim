@@ -119,6 +119,7 @@ The colour scheme used by select_file() may be changed using the following highl
 ```lua
 vim.api.nvim_set_hl(0, "PathfinderDim", { fg = "#808080", bg = "none" })
 vim.api.nvim_set_hl(0, "PathfinderHighlight", { fg = "#DDDDDD", bg = "none" })
+vim.api.nvim_set_hl(0, "PathfinderNumberHighlight", { fg = "#00FF00", bg = "none" })
 vim.api.nvim_set_hl(0, "PathfinderNextKey", { fg = "#FF00FF", bg = "none" })
 vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
 
