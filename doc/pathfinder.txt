@@ -1,5 +1,5 @@
 *pathfinder.txt*	Enhanced multiline gf/gF and file searching for Neovim
-			Version 0.1.0	            Last change: 2025 March 18
+			Version 0.4.0	             Last change: 2025 April 8
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
