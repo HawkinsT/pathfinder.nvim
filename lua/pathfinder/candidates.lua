@@ -138,7 +138,7 @@ local function create_candidate_from_piece(piece, lnum, base_col, min_col, escap
 
 	local cand_start_col = base_col + #piece_leading_ws + removed_start_len + (content_start_offset - 1)
 	local filename_length = content_end_offset - content_start_offset + 1
-	local cand_finish_col = cand_start_col + filename_length
+	local cand_finish_col = cand_start_col + filename_length + escaped_space_count
 
 	if not min_col or cand_finish_col >= min_col then
 		local filename, linenr = M.parse_filename_and_linenr(filename_str)
