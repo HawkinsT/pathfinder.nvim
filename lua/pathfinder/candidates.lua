@@ -336,11 +336,73 @@ end
 function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 	local results = {}
 	local order = 0
+
+	-- 1. Match structured patterns across the entire line.
+	for _, pat in ipairs(M.patterns) do
+		local search_offset = 1
+		while search_offset <= #line do
+			local match_s, match_e, filename, linenr_str = line:find(pat.pattern, search_offset)
+			if not match_s then
+				break
+			end
+			local abs_start_col = match_s
+			local abs_finish_col = match_e
+			if not min_col or abs_finish_col >= min_col then
+				if filename and filename ~= "" and linenr_str then
+					local candidate = {
+						filename = filename,
+						lnum = lnum,
+						start_col = abs_start_col,
+						finish = abs_finish_col,
+						linenr = tonumber(linenr_str),
+						order = order + 1,
+						type = "structured",
+					}
+					-- Calculate spans for the entire match:
+					candidate.spans = calculate_spans(abs_start_col, abs_finish_col - 1, physical_lines, lnum)
+					-- File spans:
+					local matched_text = line:sub(match_s, match_e)
+					local file_start = matched_text:find(filename, 1, true)
+					if file_start then
+						local file_col_start = abs_start_col + file_start - 1
+						local file_col_end = file_col_start + #filename - 1
+						candidate.file_spans = calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
+					end
+
+					-- Line number spans:
+					local ln_start = matched_text:find(linenr_str, 1, true)
+					if ln_start then
+						local ln_col_start = abs_start_col + ln_start - 1
+						local ln_col_end = ln_col_start + #linenr_str - 1
+						candidate.line_nr_spans = calculate_spans(ln_col_start, ln_col_end, physical_lines, lnum)
+					end
+					table.insert(results, candidate)
+					order = order + 1
+				end
+			end
+			search_offset = match_e + 1
+		end
+	end
+
+	-- 2. Handle enclosures only for segments not already matched, e.g. after
+	-- filename (line) has been checked.
 	local pos = 1
 	local enclosure_pairs = config.config.enclosure_pairs
 	local openings = config.config._cached_openings or {}
 
 	while pos <= #line do
+		local is_matched = false
+		for _, res in ipairs(results) do
+			if pos >= res.start_col and pos <= res.finish then
+				pos = res.finish + 1
+				is_matched = true
+				break
+			end
+		end
+		if is_matched then
+			goto continue
+		end
+
 		local open_pos, opening = find_next_opening(line, pos, openings)
 		if open_pos then
 			if scan_unenclosed_words and (open_pos > pos) then
@@ -379,24 +441,13 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 					local trailing_text = line:sub(close_pos + #closing)
 					local line_number, consumed = M.parse_trailing_line_number(trailing_text)
 					if line_number then
-						local tmatch_s, _, tline_str = trailing_text:find(M.trailing_patterns[1].pattern)
-						if tmatch_s then
-							local ln_sub_start = trailing_text:find(tline_str, tmatch_s, true)
-							if ln_sub_start then
-								local abs_ln_start = close_pos + #closing + ln_sub_start - 1
-								local abs_ln_end = abs_ln_start + #tline_str - 1
-								for _, cand in ipairs(candidates_in_enclosure) do
-									cand.line_nr_spans = calculate_spans(abs_ln_start, abs_ln_end, physical_lines, lnum)
-									cand.linenr = line_number
-								end
-							else
-								for _, cand in ipairs(candidates_in_enclosure) do
-									cand.linenr = line_number
-								end
-							end
-						else
-							for _, cand in ipairs(candidates_in_enclosure) do
-								cand.linenr = line_number
+						for _, cand in ipairs(candidates_in_enclosure) do
+							cand.linenr = line_number
+							local tmatch_s = trailing_text:find("%d+")
+							if tmatch_s then
+								local abs_ln_start = close_pos + #closing + tmatch_s - 1
+								local abs_ln_end = abs_ln_start + #tostring(line_number) - 1
+								cand.line_nr_spans = calculate_spans(abs_ln_start, abs_ln_end, physical_lines, lnum)
 							end
 						end
 						pos = close_pos + #closing + (consumed or 0)
@@ -427,6 +478,7 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 			end
 			break
 		end
+		::continue::
 	end
 
 	-- Sort the final results primarily by line, then start column, then original parse order.
