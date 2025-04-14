@@ -6,6 +6,20 @@ local validation = require("pathfinder.validation")
 local core = require("pathfinder.core")
 local utils = require("pathfinder.utils")
 
+local function clear_highlights(windows_to_check, highlight_ns, dim_ns)
+	local seen_buffers = {}
+	for _, win_id in ipairs(windows_to_check) do
+		local buf_nr = vim.api.nvim_win_get_buf(win_id)
+		-- Ensure buf_nr is valid and not already processed.
+		if buf_nr and buf_nr > 0 and not seen_buffers[buf_nr] then
+			vim.api.nvim_buf_clear_namespace(buf_nr, highlight_ns, 0, -1)
+			vim.api.nvim_buf_clear_namespace(buf_nr, dim_ns, 0, -1)
+			seen_buffers[buf_nr] = true
+		end
+	end
+	vim.cmd("redraw")
+end
+
 local function set_default_highlight(group, default_opts)
 	local ok, current_hl = pcall(vim.api.nvim_get_hl, 0, { name = group, link = false })
 	if not ok or vim.tbl_isempty(current_hl) then
@@ -82,7 +96,7 @@ local function select_file(is_gF)
 		-- Clear previous highlights in all affected buffers
 		local seen_buffers = {}
 		for _, candidate in ipairs(active_candidates) do
-			local buf_nr = candidate.candidate_info.buf_nr
+			local buf_nr = candidate.buf_nr
 			if not seen_buffers[buf_nr] then
 				vim.api.nvim_buf_clear_namespace(buf_nr, highlight_ns, 0, -1)
 				vim.api.nvim_buf_clear_namespace(buf_nr, dim_ns, 0, -1)
@@ -107,7 +121,6 @@ local function select_file(is_gF)
 		end
 
 		for _, candidate in ipairs(active_candidates) do
-			local ci = candidate.candidate_info
 			local display_label = input_prefix and candidate.label:sub(#input_prefix + 1) or candidate.label
 			local virt_text = {}
 			if #display_label > 0 then
@@ -117,11 +130,11 @@ local function select_file(is_gF)
 				end
 			end
 
-			local buf_nr = ci.buf_nr
+			local buf_nr = candidate.buf_nr
 
 			-- Highlight all spans of the candidate.
-			if ci.file_spans then
-				for i, span in ipairs(ci.file_spans) do
+			if candidate.file_spans then
+				for i, span in ipairs(candidate.file_spans) do
 					local opts = {
 						hl_group = candidate_highlight_group,
 						end_col = span.finish_col + 1,
@@ -136,8 +149,8 @@ local function select_file(is_gF)
 				end
 			end
 
-			if is_gF and ci.line_nr_spans then
-				for _, span in ipairs(ci.line_nr_spans) do
+			if is_gF and candidate.line_nr_spans then
+				for _, span in ipairs(candidate.line_nr_spans) do
 					vim.api.nvim_buf_set_extmark(buf_nr, highlight_ns, span.lnum - 1, span.start_col, {
 						hl_group = line_nr_highlight_group,
 						end_col = span.finish_col + 1,
@@ -198,18 +211,6 @@ local function select_file(is_gF)
 		return generate_spread_labels()
 	end
 
-	local function cancel_selection()
-		local seen_buffers = {}
-		for _, candidate in ipairs(collect_candidates()) do
-			local buf_nr = candidate.buf_nr
-			if not seen_buffers[buf_nr] then
-				vim.api.nvim_buf_clear_namespace(buf_nr, highlight_ns, 0, -1)
-				vim.api.nvim_buf_clear_namespace(buf_nr, dim_ns, 0, -1)
-				seen_buffers[buf_nr] = true
-			end
-		end
-	end
-
 	local function process_user_input(active_candidates)
 		local labels = assign_labels(#active_candidates)
 		for i, candidate in ipairs(active_candidates) do
@@ -236,7 +237,7 @@ local function select_file(is_gF)
 			local is_backspace = key == 8 or key == 127 or (type(key) == "string" and key == backspace_termcode)
 			if is_backspace then
 				if #user_input == 0 then
-					cancel_selection()
+					clear_highlights(windows_to_check, highlight_ns, dim_ns)
 					return
 				end
 				user_input = user_input:sub(1, -2)
@@ -250,7 +251,7 @@ local function select_file(is_gF)
 				local matching_candidates = get_matching_candidates(user_input)
 
 				if not vim.tbl_contains(selection_keys, char) or #matching_candidates == 0 then
-					cancel_selection()
+					clear_highlights(windows_to_check, highlight_ns, dim_ns)
 					-- If the user presses a command key, feed it to Neovim immediately.
 					if char == "/" or char == "?" or char == ":" then
 						local term_char = vim.api.nvim_replace_termcodes(char, true, false, true)
@@ -259,20 +260,12 @@ local function select_file(is_gF)
 					-- Else just cancel on all other invalid keys.
 					break
 				elseif #matching_candidates == 1 and #user_input == required_length then
-					local seen_buffers = {}
-					for _, candidate in ipairs(active_candidates) do
-						local buf_nr = candidate.candidate_info.buf_nr
-						if not seen_buffers[buf_nr] then
-							vim.api.nvim_buf_clear_namespace(buf_nr, highlight_ns, 0, -1)
-							vim.api.nvim_buf_clear_namespace(buf_nr, dim_ns, 0, -1)
-							seen_buffers[buf_nr] = true
-						end
-					end
-					vim.cmd("redraw")
+					clear_highlights(windows_to_check, highlight_ns, dim_ns)
+
 					vim.schedule(function()
 						local selected_candidate = matching_candidates[1]
-						vim.api.nvim_set_current_win(selected_candidate.candidate_info.win_id)
-						local linenr = selected_candidate.candidate_info.linenr
+						vim.api.nvim_set_current_win(selected_candidate.win_id)
+						local linenr = selected_candidate.linenr
 						core.try_open_file(selected_candidate, is_gF, linenr or 1)
 					end)
 					break
@@ -288,25 +281,19 @@ local function select_file(is_gF)
 		if index > #cand_list then
 			if #valid_candidates == 0 then
 				vim.notify("No valid file candidates found in visible area", vim.log.levels.INFO)
+				clear_highlights(windows_to_check, highlight_ns, dim_ns)
 				return
 			end
 			process_user_input(valid_candidates)
-			local seen_buffers = {}
-			for _, candidate in ipairs(cand_list) do
-				local buf_nr = candidate.buf_nr
-				if not seen_buffers[buf_nr] then
-					vim.api.nvim_buf_clear_namespace(buf_nr, highlight_ns, 0, -1)
-					vim.api.nvim_buf_clear_namespace(buf_nr, dim_ns, 0, -1)
-					seen_buffers[buf_nr] = true
-				end
-			end
 			return
 		end
 
 		local candidate = cand_list[index]
 		validation.default_validate_candidate(candidate.filename, function(open_path)
 			if open_path and open_path ~= "" then
-				table.insert(valid_candidates, { candidate_info = candidate, open_path = open_path })
+				local flat_candidate = vim.deepcopy(candidate) -- Or manually copy needed fields
+				flat_candidate.open_path = open_path
+				table.insert(valid_candidates, flat_candidate)
 			end
 			validate_candidates(index + 1, cand_list)
 		end, true)
