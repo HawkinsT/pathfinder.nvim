@@ -159,14 +159,14 @@ end
 ---@param min_col number|nil Minimum column to include candidates from.
 ---@param escaped_space_count number Number of escaped spaces replaced.
 ---@return table|nil A candidate table or nil if invalid/before min_col.
-local function create_candidate_from_piece(piece, lnum, base_col, min_col, escaped_space_count, physical_lines)
+local function create_candidate_from_piece(piece, lnum, base_col, min_col, escaped_space_count, physical_lines, cfg)
 	local piece_leading_ws = piece:match("^(%s*)") or ""
 	local trimmed_piece = vim.trim(piece)
 	if trimmed_piece == "" then
 		return nil
 	end
 
-	local inner_str, removed_start_len = strip_nested_enclosures(trimmed_piece, config.config.enclosure_pairs)
+	local inner_str, removed_start_len = strip_nested_enclosures(trimmed_piece, cfg.enclosure_pairs)
 	local content_start_offset = inner_str:find("%S") or 1
 	local content_end_offset = #inner_str - #((inner_str:match("%s*$")) or "")
 	local filename_str = inner_str:sub(content_start_offset, content_end_offset)
@@ -226,7 +226,8 @@ local function process_candidate_string(
 	min_col,
 	base_offset,
 	escaped_space_count,
-	physical_lines
+	physical_lines,
+	cfg
 )
 	local results = {}
 	local base = base_offset or start_col
@@ -243,7 +244,7 @@ local function process_candidate_string(
 		local piece = raw_str:sub(match_start, match_end)
 		local piece_start_col = base + (match_start - 1)
 		local candidate =
-			create_candidate_from_piece(piece, lnum, piece_start_col, min_col, escaped_space_count, physical_lines)
+			create_candidate_from_piece(piece, lnum, piece_start_col, min_col, escaped_space_count, physical_lines, cfg)
 		if candidate then
 			table.insert(results, candidate)
 		end
@@ -251,7 +252,8 @@ local function process_candidate_string(
 	end
 
 	if not found_separator and search_pos == 1 then
-		local candidate = create_candidate_from_piece(raw_str, lnum, base, min_col, escaped_space_count, physical_lines)
+		local candidate =
+			create_candidate_from_piece(raw_str, lnum, base, min_col, escaped_space_count, physical_lines, cfg)
 		if candidate then
 			table.insert(results, candidate)
 		end
@@ -268,8 +270,17 @@ end
 ---@param results table The table to add results to.
 ---@param current_order number The current order counter.
 ---@return number The updated order counter.
-local function process_word_segment(word_str, lnum, word_start_col, min_col, results, current_order, physical_lines)
-	local candidates = process_candidate_string(word_str, lnum, word_start_col, min_col, nil, 0, physical_lines)
+local function process_word_segment(
+	word_str,
+	lnum,
+	word_start_col,
+	min_col,
+	results,
+	current_order,
+	physical_lines,
+	cfg
+)
+	local candidates = process_candidate_string(word_str, lnum, word_start_col, min_col, nil, 0, physical_lines, cfg)
 	for _, cand in ipairs(candidates) do
 		current_order = current_order + 1
 		cand.order = current_order
@@ -280,7 +291,17 @@ end
 
 -- Parses words within a specific segment of a line (e.g. between delimiters or outside them).
 -- It first looks for structured patterns (like file:line) and then treats remaining text as words.
-local function parse_words_in_segment(line, start_pos, end_pos, lnum, min_col, results, current_order, physical_lines)
+local function parse_words_in_segment(
+	line,
+	start_pos,
+	end_pos,
+	lnum,
+	min_col,
+	results,
+	current_order,
+	physical_lines,
+	cfg
+)
 	if start_pos > end_pos then
 		return current_order
 	end
@@ -343,7 +364,7 @@ local function parse_words_in_segment(line, start_pos, end_pos, lnum, min_col, r
 				local word_finish_col = math.min(word_e, match.start_col - 1)
 				local word_str = line:sub(word_s, word_finish_col)
 				current_order =
-					process_word_segment(word_str, lnum, word_s, min_col, results, current_order, physical_lines)
+					process_word_segment(word_str, lnum, word_s, min_col, results, current_order, physical_lines, cfg)
 				word_search_start = word_finish_col + 1
 			end
 		end
@@ -364,14 +385,16 @@ local function parse_words_in_segment(line, start_pos, end_pos, lnum, min_col, r
 		end
 		local word_finish_col = math.min(word_e, end_pos)
 		local word_str = line:sub(word_s, word_finish_col)
-		current_order = process_word_segment(word_str, lnum, word_s, min_col, results, current_order, physical_lines)
+		current_order =
+			process_word_segment(word_str, lnum, word_s, min_col, results, current_order, physical_lines, cfg)
 		word_search_start = word_finish_col + 1
 	end
 
 	return current_order
 end
 
-function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
+function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines, cfg)
+	cfg = cfg or config.config
 	local results = {}
 	local order = 0
 
@@ -422,10 +445,10 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 		end
 	end
 
-	-- 2: Process remaining text with enclosures, skipping already matched regions.
+	-- 2. Process remaining text with enclosures, skipping already matched regions.
 	local pos = 1
-	local enclosure_pairs = config.config.enclosure_pairs
-	local openings = config.config._cached_openings or {}
+	local enclosure_pairs = cfg.enclosure_pairs
+	local openings = cfg._cached_openings or {}
 
 	while pos <= #line do
 		local is_matched = false
@@ -443,7 +466,8 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 		local open_pos, opening = find_next_opening(line, pos, openings)
 		if open_pos then
 			if scan_unenclosed_words and (open_pos > pos) then
-				order = parse_words_in_segment(line, pos, open_pos - 1, lnum, min_col, results, order, physical_lines)
+				order =
+					parse_words_in_segment(line, pos, open_pos - 1, lnum, min_col, results, order, physical_lines, cfg)
 			end
 			local closing = enclosure_pairs[opening]
 			local content_start_pos = open_pos + #opening
@@ -464,7 +488,8 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 					min_col,
 					content_start_pos,
 					escaped_space_count,
-					physical_lines
+					physical_lines,
+					cfg
 				)
 				for _, cand in ipairs(candidates_in_enclosure) do
 					order = order + 1
@@ -498,7 +523,7 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines)
 			-- No more opening delimiters found on the rest of the line.
 			-- If scanning unenclosed words, parse the remaining part of the line.
 			if scan_unenclosed_words then
-				order = parse_words_in_segment(line, pos, #line, lnum, min_col, results, order, physical_lines)
+				order = parse_words_in_segment(line, pos, #line, lnum, min_col, results, order, physical_lines, cfg)
 			end
 			break
 		end

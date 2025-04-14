@@ -123,7 +123,10 @@ end
 
 --- Returns a merged 'logical' line from physical lines in a terminal buffer.
 --- For non-terminal buffers it returns the current line unmodified.
-function M.get_merged_line(start_lnum, end_lnum, buf_nr)
+function M.get_merged_line(start_lnum, end_lnum, buf_nr, win_id)
+	buf_nr = buf_nr or vim.api.nvim_get_current_buf()
+	win_id = win_id or vim.api.nvim_get_current_win()
+
 	if vim.bo[buf_nr].buftype ~= "terminal" then
 		local text = vim.api.nvim_buf_get_lines(buf_nr, start_lnum - 1, start_lnum, false)[1] or ""
 		return text, start_lnum, { { lnum = start_lnum, start_pos = 1, length = #text } }
@@ -132,7 +135,8 @@ function M.get_merged_line(start_lnum, end_lnum, buf_nr)
 	local merged = ""
 	local physical_lines = {}
 	local lnum = start_lnum
-	local screen_width = vim.o.columns
+	local screen_width = vim.api.nvim_win_get_width(win_id)
+
 	local pos = 1
 
 	while lnum <= end_lnum do

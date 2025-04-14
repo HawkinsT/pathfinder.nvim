@@ -49,6 +49,35 @@ local function update_cached_openings(cfg)
 	cfg._cached_openings = openings
 end
 
+--- Returns the configuration for the specified buffer based on its filetype.
+function M.get_config_for_buffer(bufnr)
+	local current_config = vim.deepcopy(M.default_config)
+	current_config.ft_overrides = M.default_config.ft_overrides or {}
+
+	local ft = vim.bo[bufnr].filetype
+	if ft and ft ~= "" then
+		-- Apply built-in ft module settings (overwrite defaults).
+		local ft_ok, ft_module = pcall(require, "pathfinder.ft." .. ft)
+		if ft_ok and ft_module and ft_module.config then
+			for key, value in pairs(ft_module.config) do
+				current_config[key] = vim.deepcopy(value)
+			end
+		end
+
+		-- Apply user ft_overrides (overwrite defaults and ft module settings).
+		local user_override_for_ft = M.default_config.ft_overrides[ft]
+		if user_override_for_ft then
+			for key, value in pairs(user_override_for_ft) do
+				current_config[key] = vim.deepcopy(value)
+			end
+		end
+	end
+
+	-- Update derived/cached values
+	update_cached_openings(current_config)
+	return current_config
+end
+
 --- Updates the active configuration (M.config) based on defaults, filetype,
 --- and ft_overrides (in reverse order of precedence) for the current buffer.
 function M.update_config_for_buffer()

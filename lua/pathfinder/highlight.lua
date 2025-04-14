@@ -58,6 +58,7 @@ local function select_file(is_gF)
 
 		for _, win_id in ipairs(windows_to_check) do
 			local buf_nr = vim.api.nvim_win_get_buf(win_id)
+			local cfg = config.get_config_for_buffer(buf_nr)
 			local window_start = vim.fn.line("w0", win_id)
 			local window_end = vim.fn.line("w$", win_id)
 
@@ -69,14 +70,17 @@ local function select_file(is_gF)
 			local line_num = window_start
 			while line_num <= window_end do
 				-- Don't scan folded blocks.
-				if vim.fn.foldclosed(line_num) ~= -1 then
+				local is_folded = vim.api.nvim_win_call(win_id, function()
+					return vim.fn.foldclosed(line_num)
+				end)
+				if is_folded ~= -1 then
 					line_num = vim.fn.foldclosedend(line_num) + 1
 				else
 					local line_text, merged_end_line_num, physical_lines =
-						utils.get_merged_line(line_num, window_end, buf_nr)
+						utils.get_merged_line(line_num, window_end, buf_nr, win_id)
 					local scan_unenclosed_words = config.config.scan_unenclosed_words
 					local line_candidates =
-						candidates.scan_line(line_text, line_num, 1, scan_unenclosed_words, physical_lines)
+						candidates.scan_line(line_text, line_num, 1, cfg.scan_unenclosed_words, physical_lines, cfg)
 					for _, candidate in ipairs(line_candidates) do
 						candidate.merged_end_line_num = merged_end_line_num
 						candidate.buf_nr = buf_nr
