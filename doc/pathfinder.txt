@@ -1,5 +1,5 @@
 *pathfinder.txt*	Enhanced multiline gf/gF and file searching for Neovim
-			Version 0.4.0	             Last change: 2025 April 8
+			Version 0.5.0	            Last change: 2025 April 14
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
@@ -13,8 +13,8 @@ Configuration ...................................... |pathfinder-configuration|
     File Resolution .............................. |pathfinder-file-resolution|
     User Interaction ............................ |pathfinder-user-interaction|
 Functions .............................................. |pathfinder-functions|
-    select_file() .................................. |pathfinder-select_file|
-    select_file_line() ........................ |pathfinder-select_file_line|
+    select_file() .................................... |pathfinder-select_file|
+    select_file_line() .......................... |pathfinder-select_file_line|
 Filetype Overrides ............................ |pathfinder-filetype-overrides|
 Custom Key Mappings .............................. |pathfinder-custom-key-maps|
 
