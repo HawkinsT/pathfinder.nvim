@@ -91,8 +91,9 @@ require('pathfinder').setup({
 	ft_overrides = {}, -- Filetype-specific settings
 
 	-- User interaction
-	offer_multiple_options = true, -- If multiple valid files with the same name are found, prompt for action
 	remap_default_keys = true, -- Remap `gf`, `gF`, and `<leader>gf` to Pathfinder's functions
+	offer_multiple_options = true, -- If multiple valid files with the same name are found, prompt for action
+	pick_from_all_windows = true, -- Provide `select_file()` and `select_file_line()` targets across all visible windows
 	selection_keys = { "a", "s", "d", "f", "j", "k", "l" }, -- Keys to use for selection in `select_file()` and `select_file_line()`
 })
 ```

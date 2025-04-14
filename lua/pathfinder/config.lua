@@ -25,6 +25,7 @@ M.default_config = {
 	-- User interaction
 	remap_default_keys = true,
 	offer_multiple_options = true,
+	pick_from_all_windows = true,
 	selection_keys = { "a", "s", "d", "f", "j", "k", "l" },
 }
 

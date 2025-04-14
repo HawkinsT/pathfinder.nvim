@@ -275,6 +275,13 @@ Default: `{}` (table)
 					  *pathfinder-config-user-interaction*
 USER INTERACTION
 
+					       *pathfinder-remap_default_keys*
+remap_default_keys ~
+Default: `false` (boolean)
+
+    Remap default `gf` and `gF` keys. If this is `false`, the default keys
+    will not be remapped and you will need to set your own key mappings.
+
 					   *pathfinder-offer_multiple_options*
 offer_multiple_options ~
 Default: `true` (boolean)
@@ -284,12 +291,12 @@ Default: `true` (boolean)
     a matching extension in |associated_filetypes| of 'suffixesadd' will be
     opened automatically.
 
-					       *pathfinder-remap_default_keys*
-remap_default_keys ~
-Default: `false` (boolean)
+					    *pathfinder-pick_from_all_windows*
+pick_from_all_windows ~
+Default: `true` (boolean)
 
-    Remap default `gf` and `gF` keys. If this is `false`, the default keys
-    will not be remapped and you will need to set your own key mappings.
+    If `true`, `select_file()` and `select_file_line()` will offer targets
+    across all windows, not just the active window.
 
 						   *pathfinder-selection_keys*
 selection_keys ~

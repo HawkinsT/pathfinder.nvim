@@ -28,52 +28,82 @@ local function select_file(is_gF)
 
 	local highlight_ns = vim.api.nvim_create_namespace("pathfinder_highlight")
 	local dim_ns = vim.api.nvim_create_namespace("pathfinder_dim")
-	local current_buffer = vim.api.nvim_get_current_buf()
-	local window_start = vim.fn.line("w0")
-	local window_end = vim.fn.line("w$")
+	local current_tabpage = vim.api.nvim_get_current_tabpage()
 	local selection_keys = config.config.selection_keys
 
+	local windows_to_check = {}
+
+	if config.config.pick_from_all_windows then
+		windows_to_check = vim.api.nvim_tabpage_list_wins(current_tabpage)
+	else
+		windows_to_check = { vim.api.nvim_get_current_win() }
+	end
+
 	local function collect_candidates()
-		-- Shouldn't ever occur but defence against possible edge cases.
-		if not window_start or not window_end or window_start <= 0 or window_end < window_start then
-			return {}
-		end
-
 		local all_visible_candidates = {}
-		local line_num = window_start
 
-		while line_num <= window_end do
-			-- Don't scan folded blocks.
-			if vim.fn.foldclosed(line_num) ~= -1 then
-				line_num = vim.fn.foldclosedend(line_num) + 1
-			else
-				local line_text, merged_end_line_num, physical_lines = utils.get_merged_line(line_num, window_end)
-				local scan_unenclosed_words = config.config.scan_unenclosed_words
-				local line_candidates =
-					candidates.scan_line(line_text, line_num, 1, scan_unenclosed_words, physical_lines)
-				for _, candidate in ipairs(line_candidates) do
-					candidate.merged_end_line_num = merged_end_line_num
-					table.insert(all_visible_candidates, candidate)
-				end
-				line_num = merged_end_line_num + 1
+		for _, win_id in ipairs(windows_to_check) do
+			local buf_nr = vim.api.nvim_win_get_buf(win_id)
+			local window_start = vim.fn.line("w0", win_id)
+			local window_end = vim.fn.line("w$", win_id)
+
+			-- Shouldn't ever occur but defence against possible edge cases.
+			if not window_start or not window_end or window_start <= 0 or window_end < window_start then
+				goto continue
 			end
+
+			local line_num = window_start
+			while line_num <= window_end do
+				-- Don't scan folded blocks.
+				if vim.fn.foldclosed(line_num) ~= -1 then
+					line_num = vim.fn.foldclosedend(line_num) + 1
+				else
+					local line_text, merged_end_line_num, physical_lines =
+						utils.get_merged_line(line_num, window_end, buf_nr)
+					local scan_unenclosed_words = config.config.scan_unenclosed_words
+					local line_candidates =
+						candidates.scan_line(line_text, line_num, 1, scan_unenclosed_words, physical_lines)
+					for _, candidate in ipairs(line_candidates) do
+						candidate.merged_end_line_num = merged_end_line_num
+						candidate.buf_nr = buf_nr
+						candidate.win_id = win_id
+						table.insert(all_visible_candidates, candidate)
+					end
+					line_num = merged_end_line_num + 1
+				end
+			end
+			::continue::
 		end
 
 		return all_visible_candidates
 	end
 
 	local function update_highlights(active_candidates, input_prefix)
-		vim.api.nvim_buf_clear_namespace(current_buffer, highlight_ns, 0, -1)
-		vim.api.nvim_buf_clear_namespace(current_buffer, dim_ns, 0, -1)
+		-- Clear previous highlights in all affected buffers
+		local seen_buffers = {}
+		for _, candidate in ipairs(active_candidates) do
+			local buf_nr = candidate.candidate_info.buf_nr
+			if not seen_buffers[buf_nr] then
+				vim.api.nvim_buf_clear_namespace(buf_nr, highlight_ns, 0, -1)
+				vim.api.nvim_buf_clear_namespace(buf_nr, dim_ns, 0, -1)
+				seen_buffers[buf_nr] = true
+			end
+		end
 
-		for line = window_start, window_end do
-			local line_text = vim.fn.getline(line)
-			vim.api.nvim_buf_set_extmark(current_buffer, dim_ns, line - 1, 0, {
-				end_col = #line_text,
-				hl_group = dim_group,
-				hl_eol = true,
-				priority = 10000,
-			})
+		-- Dim all visible lines in checked windows
+		for _, win_id in ipairs(windows_to_check) do
+			local buf_nr = vim.api.nvim_win_get_buf(win_id)
+			local window_start = vim.fn.line("w0", win_id)
+			local window_end = vim.fn.line("w$", win_id)
+			for line = window_start, window_end do
+				local line_text = vim.fn.getbufline(buf_nr, line)[1] or ""
+				vim.api.nvim_buf_set_extmark(buf_nr, dim_ns, line - 1, 0, {
+					end_col = #line_text,
+					hl_group = dim_group,
+					hl_eol = true,
+					priority = 10000,
+				})
+			end
 		end
 
 		for _, candidate in ipairs(active_candidates) do
@@ -86,6 +116,8 @@ local function select_file(is_gF)
 					table.insert(virt_text, { display_label:sub(2), future_key_group })
 				end
 			end
+
+			local buf_nr = ci.buf_nr
 
 			-- Highlight all spans of the candidate.
 			if ci.file_spans then
@@ -100,13 +132,13 @@ local function select_file(is_gF)
 						opts.virt_text = virt_text
 						opts.virt_text_pos = "overlay"
 					end
-					vim.api.nvim_buf_set_extmark(current_buffer, highlight_ns, span.lnum - 1, span.start_col, opts)
+					vim.api.nvim_buf_set_extmark(buf_nr, highlight_ns, span.lnum - 1, span.start_col, opts)
 				end
 			end
 
 			if is_gF and ci.line_nr_spans then
 				for _, span in ipairs(ci.line_nr_spans) do
-					vim.api.nvim_buf_set_extmark(current_buffer, highlight_ns, span.lnum - 1, span.start_col, {
+					vim.api.nvim_buf_set_extmark(buf_nr, highlight_ns, span.lnum - 1, span.start_col, {
 						hl_group = line_nr_highlight_group,
 						end_col = span.finish_col + 1,
 						priority = 10001,
@@ -167,8 +199,15 @@ local function select_file(is_gF)
 	end
 
 	local function cancel_selection()
-		vim.api.nvim_buf_clear_namespace(current_buffer, highlight_ns, 0, -1)
-		vim.api.nvim_buf_clear_namespace(current_buffer, dim_ns, 0, -1)
+		local seen_buffers = {}
+		for _, candidate in ipairs(collect_candidates()) do
+			local buf_nr = candidate.buf_nr
+			if not seen_buffers[buf_nr] then
+				vim.api.nvim_buf_clear_namespace(buf_nr, highlight_ns, 0, -1)
+				vim.api.nvim_buf_clear_namespace(buf_nr, dim_ns, 0, -1)
+				seen_buffers[buf_nr] = true
+			end
+		end
 	end
 
 	local function process_user_input(active_candidates)
@@ -220,12 +259,21 @@ local function select_file(is_gF)
 					-- Else just cancel on all other invalid keys.
 					break
 				elseif #matching_candidates == 1 and #user_input == required_length then
-					vim.api.nvim_buf_clear_namespace(current_buffer, highlight_ns, 0, -1)
-					vim.api.nvim_buf_clear_namespace(current_buffer, dim_ns, 0, -1)
+					local seen_buffers = {}
+					for _, candidate in ipairs(active_candidates) do
+						local buf_nr = candidate.candidate_info.buf_nr
+						if not seen_buffers[buf_nr] then
+							vim.api.nvim_buf_clear_namespace(buf_nr, highlight_ns, 0, -1)
+							vim.api.nvim_buf_clear_namespace(buf_nr, dim_ns, 0, -1)
+							seen_buffers[buf_nr] = true
+						end
+					end
 					vim.cmd("redraw")
 					vim.schedule(function()
-						local linenr = matching_candidates[1].candidate_info.linenr
-						core.try_open_file(matching_candidates[1], is_gF, linenr or 1)
+						local selected_candidate = matching_candidates[1]
+						vim.api.nvim_set_current_win(selected_candidate.candidate_info.win_id)
+						local linenr = selected_candidate.candidate_info.linenr
+						core.try_open_file(selected_candidate, is_gF, linenr or 1)
 					end)
 					break
 				elseif #user_input < required_length then
@@ -243,8 +291,15 @@ local function select_file(is_gF)
 				return
 			end
 			process_user_input(valid_candidates)
-			vim.api.nvim_buf_clear_namespace(current_buffer, highlight_ns, 0, -1)
-			vim.api.nvim_buf_clear_namespace(current_buffer, dim_ns, 0, -1)
+			local seen_buffers = {}
+			for _, candidate in ipairs(cand_list) do
+				local buf_nr = candidate.buf_nr
+				if not seen_buffers[buf_nr] then
+					vim.api.nvim_buf_clear_namespace(buf_nr, highlight_ns, 0, -1)
+					vim.api.nvim_buf_clear_namespace(buf_nr, dim_ns, 0, -1)
+					seen_buffers[buf_nr] = true
+				end
+			end
 			return
 		end
 
