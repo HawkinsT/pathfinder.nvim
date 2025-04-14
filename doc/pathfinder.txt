@@ -103,6 +103,7 @@ Defaults ~
  	forward_limit = -1,
  	scan_unenclosed_words = true,
 	open_mode = "edit",
+	reuse_existing_window = true,
  	gF_count_behaviour = "nextfile",
  	associated_filetypes = {},
  	enclosure_pairs = {
@@ -180,6 +181,14 @@ Default: `"edit"` (string|function)
 	absolute path and an optional line number (nil if not supplied). You
 	may this to implement custom opening logic (notifications, external
 	tools, etc).
+
+					    *pathfinder-reuse_existing_window*
+reuse_existing_window ~
+Default: `true` (boolean)
+
+    If the target file is already open in a tab/window, go to that window and
+    line number (for `gF`). If the file isn't currently open in an active
+    window, then `open_mode` will be used.
 
 					       *pathfinder-gF_count_behaviour*
 gF_count_behaviour ~

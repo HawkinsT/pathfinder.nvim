@@ -5,6 +5,27 @@ local utils = require("pathfinder.utils")
 local candidates = require("pathfinder.candidates")
 local validation = require("pathfinder.validation")
 
+-- Helper: Switch to an existing window displaying the file, if it exists in any tab.
+local function switch_to_file_if_open(filename_and_path, line)
+	-- Iterate through all tab pages.
+	for _, tabpage_id in ipairs(vim.api.nvim_list_tabpages()) do
+		-- Get all windows in the current tab.
+		for _, win_id in ipairs(vim.api.nvim_tabpage_list_wins(tabpage_id)) do
+			local buf_nr = vim.api.nvim_win_get_buf(win_id)
+			local buf_name = vim.api.nvim_buf_get_name(buf_nr)
+			if buf_name == filename_and_path then
+				vim.api.nvim_set_current_tabpage(tabpage_id)
+				vim.api.nvim_set_current_win(win_id)
+				if line ~= nil then
+					vim.api.nvim_win_set_cursor(0, { line, 0 })
+				end
+				return true
+			end
+		end
+	end
+	return false
+end
+
 -- Helper: Build and execute the open command.
 local function execute_open_command(open_path, is_gF, linenr)
 	local cmd = config.config.open_mode
@@ -42,19 +63,28 @@ function M.try_open_file(valid_candidate, is_gF, linenr)
 		return false
 	end
 
-	local current_bufnr = vim.api.nvim_get_current_buf()
-	local target_bufnr = vim.fn.bufnr(vim.fn.fnameescape(open_path))
-	if target_bufnr == current_bufnr then
-		if is_gF and linenr then
-			vim.api.nvim_win_set_cursor(0, { linenr, 0 })
+	if config.config.reuse_existing_window then
+		if switch_to_file_if_open(open_path, is_gF and linenr or nil) then
+			return true
 		else
-			local cfile = vim.fn.fnamemodify(open_path, ":t")
-			vim.notify("File '" .. cfile .. "' is the current file", vim.log.levels.INFO)
+			execute_open_command(open_path, is_gF, linenr)
+			return true
 		end
-		return true
 	else
-		execute_open_command(open_path, is_gF, linenr)
-		return true
+		local current_bufnr = vim.api.nvim_get_current_buf()
+		local target_bufnr = vim.fn.bufnr(vim.fn.fnameescape(open_path))
+		if target_bufnr == current_bufnr then
+			if is_gF and linenr then
+				vim.api.nvim_win_set_cursor(0, { linenr, 0 })
+			else
+				local cfile = vim.fn.fnamemodify(open_path, ":t")
+				vim.notify("File '" .. cfile .. "' is the current file", vim.log.levels.INFO)
+			end
+			return true
+		else
+			execute_open_command(open_path, is_gF, linenr)
+			return true
+		end
 	end
 end
 
@@ -96,12 +126,20 @@ local function process_cursor_file(is_gF, line)
 		return false
 	end
 
-	if handle_current_file(is_gF, line, filename, resolved_cfile) then
+	if config.config.reuse_existing_window then
+		if switch_to_file_if_open(resolved_cfile, is_gF and line or nil) then
+			return true
+		else
+			execute_open_command(resolved_cfile, is_gF, is_gF and line or nil)
+			return true
+		end
+	else
+		if handle_current_file(is_gF, line, filename, resolved_cfile) then
+			return true
+		end
+		execute_open_command(resolved_cfile, is_gF, is_gF and line or nil)
 		return true
 	end
-
-	execute_open_command(resolved_cfile, is_gF, is_gF and line or nil)
-	return true
 end
 
 -- Main function handling gf/gF.
@@ -137,7 +175,7 @@ local function custom_gf(is_gF, count)
 		local cursor_candidate = nil
 		local cursor_idx = nil
 
-		-- Step 1: Identify the candidate under or nearest to the cursor and collect forward candidates.
+		-- Identify the candidate under or nearest to the cursor and collect forward candidates.
 		for _, cand in ipairs(cand_list) do
 			local cand_start = cand.start_col - 1 -- 0-based
 			local cand_end = cand.finish - 1
@@ -157,7 +195,7 @@ local function custom_gf(is_gF, count)
 			end
 		end
 
-		-- Step 2: Reorder so the cursor candidate (if any) is first.
+		-- Reorder so the cursor candidate (if any) is first.
 		if cursor_candidate and cursor_idx and cursor_idx > 1 then
 			table.remove(forward_candidates, cursor_idx)
 			table.insert(forward_candidates, 1, cursor_candidate)

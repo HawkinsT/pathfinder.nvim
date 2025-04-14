@@ -5,6 +5,7 @@ M.default_config = {
 	forward_limit = -1,
 	scan_unenclosed_words = true,
 	open_mode = "edit",
+	reuse_existing_window = true,
 	gF_count_behaviour = "nextfile",
 
 	-- File resolution settings
