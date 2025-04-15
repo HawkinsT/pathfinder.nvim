@@ -78,7 +78,6 @@ local function select_file(is_gF)
 				else
 					local line_text, merged_end_line_num, physical_lines =
 						utils.get_merged_line(line_num, window_end, buf_nr, win_id)
-					local scan_unenclosed_words = config.config.scan_unenclosed_words
 					local line_candidates =
 						candidates.scan_line(line_text, line_num, 1, cfg.scan_unenclosed_words, physical_lines, cfg)
 					for _, candidate in ipairs(line_candidates) do
@@ -295,7 +294,7 @@ local function select_file(is_gF)
 		local candidate = cand_list[index]
 		validation.default_validate_candidate(candidate.filename, function(open_path)
 			if open_path and open_path ~= "" then
-				local flat_candidate = vim.deepcopy(candidate) -- Or manually copy needed fields
+				local flat_candidate = vim.deepcopy(candidate)
 				flat_candidate.open_path = open_path
 				table.insert(valid_candidates, flat_candidate)
 			end
