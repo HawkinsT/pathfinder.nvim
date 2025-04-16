@@ -1,5 +1,7 @@
 local M = {}
 
+local vim = vim
+
 local config = require("pathfinder.config")
 
 -- Helper function to get the terminal's current working directory.

@@ -1,5 +1,7 @@
 local M = {}
 
+local vim = vim
+
 local config = require("pathfinder.config")
 local utils = require("pathfinder.utils")
 local candidates = require("pathfinder.candidates")

@@ -1,5 +1,7 @@
 local M = {}
 
+local vim = vim
+
 M.default_config = {
 	-- Search behaviour
 	forward_limit = -1,
