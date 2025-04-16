@@ -232,7 +232,11 @@ local function custom_gf(is_gF, count)
 			end
 			M.try_open_file(candidate, is_gF, linenr)
 		else
-			vim.notify("E447: No valid file targets found in cwd or path", vim.log.levels.ERROR)
+			if #valids == 0 then
+				vim.notify("E447: No valid file targets found in cwd or path", vim.log.levels.ERROR)
+			else
+				vim.notify("Only " .. #valids .. " file candidate(s) available", vim.log.levels.WARN)
+			end
 		end
 	end)
 end
