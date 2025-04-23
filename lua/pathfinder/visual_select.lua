@@ -203,11 +203,30 @@ local function update_highlights(candidates, input_prefix, highlight_ns, dim_ns,
 	vim.cmd("redraw")
 end
 
+-- Prevent highlights getting stuck on error.
+local function safe_update_highlights(candidates, input_prefix, highlight_ns, dim_ns, highlight_candidate)
+	local function on_error(err)
+		local wins = M.get_windows_to_check()
+		clear_extmarks(wins, highlight_ns, dim_ns)
+
+		-- Still provide the full error message.
+		local full = debug.traceback(tostring(err), 2)
+		vim.notify(("%s"):format(full), vim.log.levels.ERROR, {
+			title = "pathfinder",
+			timeout = false,
+		})
+	end
+
+	xpcall(function()
+		update_highlights(candidates, input_prefix, highlight_ns, dim_ns, highlight_candidate)
+	end, on_error)
+end
+
 -- Main input loop that starts with an immediate highlight, then reads user keystrokes.
 function M.start_selection_loop(candidates, highlight_ns, dim_ns, highlight_candidate, on_complete, required_length)
 	local user_input = ""
 
-	update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
+	safe_update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
 
 	-- Read keystrokes.
 	while true do
@@ -232,7 +251,7 @@ function M.start_selection_loop(candidates, highlight_ns, dim_ns, highlight_cand
 			user_input = user_input .. char
 		end
 
-		update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
+		safe_update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
 		local matches = get_matching_candidates(candidates, user_input)
 
 		-- If no matches, cancel.
