@@ -90,7 +90,8 @@ function M.default_validate_candidate(candidate, callback, auto_select)
 		callback(valid_candidates[1])
 	elseif config.config.offer_multiple_options then
 		local ok, _ = pcall(function()
-			vim.ui.select(valid_candidates, {
+			local select = vim.schedule_wrap(vim.ui.select)
+			select(valid_candidates, {
 				prompt = "Multiple targets for " .. candidate .. " (q/Esc=cancel):",
 				format_item = function(item)
 					return item
