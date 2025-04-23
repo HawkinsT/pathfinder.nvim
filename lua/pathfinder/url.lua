@@ -68,7 +68,7 @@ local function try_open_urls(urls, on_none)
 		if done then
 			return
 		end
-		if success or vim.fn.executable("curl") ~= 1 then
+		if success then
 			done = true
 			vim.schedule(function()
 				vim.notify('Opening "' .. url .. '"', vim.log.levels.INFO)
