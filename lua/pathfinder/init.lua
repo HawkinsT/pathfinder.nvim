@@ -1,6 +1,8 @@
 local M = {}
 
-M.version = "0.5.0"
+local vim = vim
+
+M.version = "0.6.0"
 
 local required_nvim_version = { major = 0, minor = 9, patch = 0 }
 
@@ -62,13 +64,15 @@ end
 if ensure_neovim_version() then
 	local config = require("pathfinder.config")
 	local core = require("pathfinder.core")
-	local highlight = require("pathfinder.highlight")
+	local url = require("pathfinder.url")
 
 	M.setup = config.setup
 	M.gf = core.gf
 	M.gF = core.gF
-	M.select_file = highlight.select_file
-	M.select_file_line = highlight.select_file_line
+	M.gx = url.gx
+	M.select_file = core.select_file
+	M.select_file_line = core.select_file_line
+	M.select_url = url.select_url
 
 	local function setup_autocommands()
 		vim.api.nvim_create_autocmd({ "FileType", "BufEnter", "VimEnter" }, {
@@ -77,17 +81,30 @@ if ensure_neovim_version() then
 		})
 	end
 
+    --stylua: ignore
 	local function setup_keymaps()
 		if config.config.remap_default_keys then
 			vim.keymap.set("n", "gf", M.gf, { silent = true, desc = "Enhanced go to file" })
 			vim.keymap.set("n", "gF", M.gF, { silent = true, desc = "Enhanced go to file (line)" })
-			vim.keymap.set("n", "<leader>gf", M.select_file, { silent = true, desc = "Visual file selection" })
+            vim.keymap.set("n", "gx", M.gx, { silent = true, desc = "Open URL/Git repository" })
+			vim.keymap.set(
+                "n",
+                "<leader>gf",
+                M.select_file,
+                { silent = true, desc = "Visual file selection" }
+            )
 			vim.keymap.set(
 				"n",
 				"<leader>gF",
 				M.select_file_line,
 				{ silent = true, desc = "Visual file selection (line)" }
 			)
+			vim.keymap.set(
+                "n",
+                "<leader>gx",
+                M.select_url,
+                { silent = true, desc = "Visual URL/Git repository selection" }
+            )
 		end
 	end
 
@@ -99,8 +116,10 @@ else
 	M.setup = noop
 	M.gf = noop
 	M.gF = noop
+	M.gx = noop
 	M.select_file = noop
 	M.select_file_line = noop
+	M.select_url = noop
 end
 
 return M

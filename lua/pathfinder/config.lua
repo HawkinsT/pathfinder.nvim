@@ -3,15 +3,18 @@ local M = {}
 local vim = vim
 
 M.default_config = {
-	-- Search behaviour
+	-- Search behaviour:
 	forward_limit = -1,
 	scan_unenclosed_words = true,
 	open_mode = "edit",
 	reuse_existing_window = true,
 	gF_count_behaviour = "nextfile",
 
-	-- File resolution settings
+	-- File resolution settings:
 	associated_filetypes = {},
+	url_providers = {
+		"https://github.com/%s.git",
+	},
 	enclosure_pairs = {
 		["("] = ")",
 		["{"] = "}",
@@ -21,23 +24,24 @@ M.default_config = {
 		["'"] = "'",
 		["`"] = "`",
 	},
+	url_enclosure_pairs = nil,
 	includeexpr = "",
 	ft_overrides = {},
 
-	-- User interaction
+	-- User interaction:
 	remap_default_keys = true,
 	offer_multiple_options = true,
 	pick_from_all_windows = true,
 	selection_keys = { "a", "s", "d", "f", "j", "k", "l" },
 }
 
---- Active configuration for the current buffer. This will be modified by filetype overrides.
+-- Active configuration for the current buffer. This will be modified by filetype overrides.
 M.config = vim.deepcopy(M.default_config)
 
---- Suffix cache for each buffer (used to avoid recomputing extension lists).
+-- Suffix cache for each buffer (used to avoid recomputing extension lists).
 M.suffix_cache = {}
 
---- Helper to compute and cache the sorted list of opening delimiters.
+-- Compute and cache a sorted list of opening delimiters.
 local function update_cached_openings(cfg)
 	local openings = {}
 	if cfg.enclosure_pairs then
@@ -51,7 +55,7 @@ local function update_cached_openings(cfg)
 	cfg._cached_openings = openings
 end
 
---- Returns the configuration for the specified buffer based on its filetype.
+-- Returns the configuration for the specified buffer based on its filetype.
 function M.get_config_for_buffer(bufnr)
 	local current_config = vim.deepcopy(M.default_config)
 	current_config.ft_overrides = M.default_config.ft_overrides or {}
@@ -75,13 +79,12 @@ function M.get_config_for_buffer(bufnr)
 		end
 	end
 
-	-- Update derived/cached values
 	update_cached_openings(current_config)
 	return current_config
 end
 
---- Updates the active configuration (M.config) based on defaults, filetype,
---- and ft_overrides (in reverse order of precedence) for the current buffer.
+-- Updates the active configuration (M.config) based on defaults, filetype,
+-- and ft_overrides (in reverse order of precedence) for the current buffer.
 function M.update_config_for_buffer()
 	local bufnr = vim.api.nvim_get_current_buf()
 	local current_config = vim.deepcopy(M.default_config)
@@ -106,8 +109,7 @@ function M.update_config_for_buffer()
 		end
 	end
 
-	-- Finalize active config.
-	M.config = current_config
+	M.config = current_config -- finalize active config
 
 	-- Apply buffer-local settings based on the finalized config.
 	local includeexpr_target = M.config.includeexpr
@@ -116,13 +118,11 @@ function M.update_config_for_buffer()
 	else
 	end
 
-	-- Update derived/cached values
-	update_cached_openings(M.config)
+	update_cached_openings(M.config) -- update derived/cached values
 	M.suffix_cache[bufnr] = nil
 end
 
---- Sets up pathfinder with user configuration.
----@param user_config? table Optional table with configuration overrides.
+-- Sets up pathfinder with user configuration.
 function M.setup(user_config)
 	user_config = user_config or {}
 
