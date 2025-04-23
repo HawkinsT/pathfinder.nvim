@@ -187,7 +187,7 @@ local function create_candidate_from_piece(piece, lnum, base_col, min_col, escap
 			if file_sub_start then
 				local file_col_start = cand_start_col + file_sub_start - 1
 				local file_col_end = file_col_start + #filename - 1 + escaped_space_count
-				candidate.file_spans = M.calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
+				candidate.target_spans = M.calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
 			end
 			if linenr then
 				local linenr_str = tostring(linenr)
@@ -310,7 +310,7 @@ local function parse_words_in_segment(
 					if file_sub_start then
 						local file_col_start = abs_start_col + file_sub_start - 1
 						local file_col_end = file_col_start + #filename - 1
-						match_item.file_spans = M.calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
+						match_item.target_spans = M.calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
 					end
 					if linenr_str then
 						local ln_sub_start = matched_text:find(linenr_str, 1, true)
@@ -407,7 +407,7 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 					if file_start then
 						local file_col_start = abs_start_col + file_start - 1
 						local file_col_end = file_col_start + #filename - 1
-						candidate.file_spans = M.calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
+						candidate.target_spans = M.calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
 					end
 
 					-- Line number spans:

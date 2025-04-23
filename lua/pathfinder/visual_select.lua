@@ -54,7 +54,7 @@ function M.highlight_candidate(candidate, input_prefix, ns)
 	end
 
 	-- Main filename/URL spans.
-	for i, span in ipairs(candidate.file_spans) do
+	for i, span in ipairs(candidate.target_spans) do
 		put(span.lnum - 1, span.start_col, span.finish_col + 1, is_match and i == 1)
 	end
 
