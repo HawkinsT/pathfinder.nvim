@@ -5,14 +5,13 @@ local vim = vim
 local config = require("pathfinder.config")
 local utils = require("pathfinder.utils")
 
---- Default candidate validator.
 -- Checks if the resolved candidate file exists. If not, appends each extension
 -- from the combined suffix list until valid file targets are found.
 --
 -- If multiple valid targets are found and |offer_multiple_options| is enabled,
--- we prompt the user with vim.fn.input. In "auto mode" (auto_select==true),
+-- then prompt the user with vim.fn.input. In "auto mode" (auto_select==true),
 -- the first option is automatically chosen with no prompt.
-function M.default_validate_candidate(candidate, callback, auto_select)
+function M.validate_candidate(candidate, callback, auto_select)
 	local resolved = utils.resolve_file(candidate)
 	local unique_exts = utils.get_combined_suffixes()
 	local valid_candidates = {}
@@ -90,6 +89,7 @@ function M.default_validate_candidate(candidate, callback, auto_select)
 		callback(valid_candidates[1])
 	elseif config.config.offer_multiple_options then
 		local ok, _ = pcall(function()
+			-- Wrap to avoid some plugins that overwrite vim.ui.select not gaining focus.
 			local select = vim.schedule_wrap(vim.ui.select)
 			select(valid_candidates, {
 				prompt = "Multiple targets for " .. candidate .. " (q/Esc=cancel):",
@@ -111,32 +111,34 @@ end
 --- Collects valid candidates in order. Short-circuits immediately after the
 --- count-th valid candidate is found or the user cancels.
 function M.collect_valid_candidates_seq(candidates, count, final_callback)
-	local valid_candidates = {}
-	local user_cancelled = false
+	local valids = {}
+	local cancelled = false
 	local i = 1
 
 	local function process_next()
-		if user_cancelled or i > #candidates then
-			return final_callback(valid_candidates, user_cancelled)
-		end
-		local cinfo = candidates[i]
-		local auto_flag = (#valid_candidates < (count - 1))
-		M.default_validate_candidate(cinfo.filename, function(open_path)
+		local c = candidates[i]
+		i = i + 1
+		local auto_flag = (#valids < (count - 1))
+		M.validate_candidate(c.filename, function(open_path)
 			if open_path == nil then
-				user_cancelled = true
-				return final_callback(valid_candidates, user_cancelled)
-			elseif open_path and open_path ~= "" then
-				table.insert(valid_candidates, { candidate_info = cinfo, open_path = open_path })
-				if #valid_candidates == count then
-					return final_callback(valid_candidates, user_cancelled)
-				end
+				cancelled = true
+			elseif open_path ~= "" then
+				c.open_path = open_path
+				table.insert(valids, c)
 			end
-			i = i + 1
-			process_next()
+			if cancelled or #valids == count or i > #candidates then
+				final_callback(valids, cancelled)
+			else
+				process_next()
+			end
 		end, auto_flag)
 	end
 
-	process_next()
+	if #candidates == 0 then
+		final_callback({}, false)
+	else
+		process_next()
+	end
 end
 
 return M

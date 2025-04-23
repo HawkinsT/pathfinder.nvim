@@ -4,9 +4,7 @@ local vim = vim
 
 local config = require("pathfinder.config")
 
---- Define and set highlight groups that both file and URL selectors use.
 function M.set_default_highlights()
-	-- Each entry is { group_name, highlight_opts }
 	local shared_highlights = {
 		{ "PathfinderHighlight", { fg = "#DDDDDD", bg = "none" } },
 		{ "PathfinderNumberHighlight", { fg = "#00FF00", bg = "none" } },
@@ -24,7 +22,55 @@ function M.set_default_highlights()
 	end
 end
 
---- Returns a list of window IDs in the current tabpage, either all or just current.
+function M.highlight_candidate(candidate, input_prefix, ns)
+	local buf = candidate.buf_nr
+	local label = candidate.label or ""
+	local is_match = label:sub(1, #input_prefix) == input_prefix
+
+	local hl_group = is_match and "PathfinderHighlight" or "PathfinderDim"
+	local priority = is_match and 10001 or 10000
+
+	-- Build virt_text on matches.
+	local leftover = label:sub(#input_prefix + 1)
+	local virt_text = {}
+	if is_match and #leftover > 0 then
+		table.insert(virt_text, { leftover:sub(1, 1), "PathfinderNextKey" })
+		if #leftover > 1 then
+			table.insert(virt_text, { leftover:sub(2), "PathfinderFutureKeys" })
+		end
+	end
+
+	local function put(ln, col_start, col_end, with_text)
+		local opts = {
+			hl_group = hl_group,
+			end_col = col_end,
+			priority = priority,
+		}
+		if with_text and #virt_text > 0 then
+			opts.virt_text = virt_text
+			opts.virt_text_pos = "overlay"
+		end
+		vim.api.nvim_buf_set_extmark(buf, ns, ln, col_start, opts)
+	end
+
+	-- Main filename/URL spans.
+	for i, span in ipairs(candidate.file_spans) do
+		put(span.lnum - 1, span.start_col, span.finish_col + 1, is_match and i == 1)
+	end
+
+	-- Line‐number spans.
+	if is_match and candidate.line_nr_spans then
+		for _, span in ipairs(candidate.line_nr_spans) do
+			vim.api.nvim_buf_set_extmark(buf, ns, span.lnum - 1, span.start_col, {
+				hl_group = "PathfinderNumberHighlight",
+				end_col = span.finish_col + 1,
+				priority = 10001,
+			})
+		end
+	end
+end
+
+-- Returns a list of window IDs in the current tabpage, either all or just current.
 function M.get_windows_to_check()
 	local current_tabpage = vim.api.nvim_get_current_tabpage()
 	if config.config.pick_from_all_windows then
@@ -42,7 +88,7 @@ function M.get_windows_to_check()
 end
 
 --- Clears dim/highlight extmarks in all relevant windows.
-function M.clear_extmarks(windows, highlight_ns, dim_ns)
+local function clear_extmarks(windows, highlight_ns, dim_ns)
 	local seen_buffers = {}
 	for _, win in ipairs(windows) do
 		local buf = vim.api.nvim_win_get_buf(win)
@@ -55,54 +101,57 @@ function M.clear_extmarks(windows, highlight_ns, dim_ns)
 	vim.cmd("redraw")
 end
 
---- Assigns selection labels to a list of candidate objects.
 function M.assign_labels(candidates, selection_keys)
-	local function calculate_minimum_label_length(n)
-		local length = 1
-		while true do
-			local max_combinations = 1
-			for i = 1, length do
-				max_combinations = max_combinations * (#selection_keys - i + 1)
-			end
-			if max_combinations >= n then
-				return length
-			end
-			length = length + 1
-		end
+	local n, k = #candidates, #selection_keys
+	if n == 0 then
+		return
+	end
+	if k < 2 then
+		error("At least two selection_keys must be specified")
 	end
 
-	local candidate_count = #candidates
-	local label_length = calculate_minimum_label_length(candidate_count)
+	-- 1. Smallest length that can label every candidate.
+	local function capacity(len) -- strings of length len with no adjacent dupes
+		if len == 1 then
+			return k
+		end
+		return k * (k - 1) ^ (len - 1)
+	end
 
-	local function generate_labels(n)
-		local result = {}
-		for i = 1, n do
-			local label = ""
-			local available = vim.deepcopy(selection_keys)
-			local index = ((i - 1) % #available) + 1
-			label = label .. available[index]
-			table.remove(available, index)
-			for j = 2, label_length do
-				if #available == 0 then
-					break
+	local L = 1
+	while capacity(L) < n do
+		L = L + 1
+	end
+
+	-- 2. Enumerate strings that obey 'no two identical neighbours'.
+	local labels, limit = {}, n
+	local function dfs(prefix)
+		if #labels == limit then
+			return
+		end -- already have enough
+		if #prefix == L then -- full‑length label ready
+			labels[#labels + 1] = prefix
+			return
+		end
+		for _, ch in ipairs(selection_keys) do
+			if #prefix == 0 or ch ~= prefix:sub(-1) then -- no repeat with the last char
+				dfs(prefix .. ch)
+				if #labels == limit then
+					return
 				end
-				index = ((i + j - 2) % #available) + 1
-				label = label .. available[index]
-				table.remove(available, index)
 			end
-			table.insert(result, label)
 		end
-		return result
 	end
+	dfs("")
 
-	local labels = generate_labels(candidate_count)
+	-- 3. Assign the labels.
 	for i, cand in ipairs(candidates) do
 		cand.label = labels[i]
 	end
 end
 
 --- Returns the subset of candidates whose labels start with 'input'.
-function M.get_matching_candidates(candidates, input)
+local function get_matching_candidates(candidates, input)
 	local matches = {}
 	for _, candidate in ipairs(candidates) do
 		if candidate.label:sub(1, #input) == input then
@@ -113,37 +162,40 @@ function M.get_matching_candidates(candidates, input)
 end
 
 --- Dims all visible lines, then calls highlight_candidate() for each candidate.
-function M.update_highlights(candidates, input_prefix, highlight_ns, dim_ns, highlight_candidate)
+local function update_highlights(candidates, input_prefix, highlight_ns, dim_ns, highlight_candidate)
 	local windows = M.get_windows_to_check()
+	local seen_bufs = {}
 
-	-- First clear existing extmarks
-	local seen_buffers = {}
+	-- 1. Clear all old extmarks.
 	for _, win in ipairs(windows) do
 		local buf = vim.api.nvim_win_get_buf(win)
-		if buf > 0 and not seen_buffers[buf] then
+		if buf > 0 and not seen_bufs[buf] then
 			vim.api.nvim_buf_clear_namespace(buf, highlight_ns, 0, -1)
 			vim.api.nvim_buf_clear_namespace(buf, dim_ns, 0, -1)
-			seen_buffers[buf] = true
+			seen_bufs[buf] = true
 		end
 	end
 
-	-- Dim all lines in the visible region of each window
+	-- 2. Dim the visible lines in each window.
 	for _, win in ipairs(windows) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		local win_start = vim.fn.line("w0", win)
-		local win_end = vim.fn.line("w$", win)
-		for line = win_start, win_end do
-			local line_text = vim.fn.getbufline(buf, line)[1] or ""
-			vim.api.nvim_buf_set_extmark(buf, dim_ns, line - 1, 0, {
-				end_col = #line_text,
-				hl_group = "PathfinderDim",
-				hl_eol = true,
-				priority = 10000,
-			})
+		if vim.api.nvim_win_is_valid(win) then
+			local buf = vim.api.nvim_win_get_buf(win)
+			vim.api.nvim_win_call(win, function()
+				local start_row = vim.fn.line("w0") - 1
+				local end_row = vim.fn.line("w$") - 1
+
+				vim.api.nvim_buf_set_extmark(buf, dim_ns, start_row, 0, {
+					end_row = end_row + 1, -- extmark end_row is exclusive
+					end_col = 0, -- anchor at first col
+					hl_group = "PathfinderDim",
+					hl_eol = true, -- fill to end of screen‐line
+					priority = 10000,
+				})
+			end)
 		end
 	end
 
-	-- Now apply the domain-specific highlight logic for each candidate
+	-- 3. Now re‐draw highlights on top.
 	for _, cand in ipairs(candidates) do
 		highlight_candidate(cand, input_prefix, highlight_ns)
 	end
@@ -151,22 +203,13 @@ function M.update_highlights(candidates, input_prefix, highlight_ns, dim_ns, hig
 	vim.cmd("redraw")
 end
 
---- The main input loop that starts with an immediate highlight, then reads user keystrokes.
-function M.start_selection_loop(
-	candidates,
-	selection_keys,
-	highlight_ns,
-	dim_ns,
-	highlight_candidate, -- function(candidate, input_prefix, highlight_ns)
-	on_complete,
-	required_length
-)
+-- Main input loop that starts with an immediate highlight, then reads user keystrokes.
+function M.start_selection_loop(candidates, highlight_ns, dim_ns, highlight_candidate, on_complete, required_length)
 	local user_input = ""
 
-	-- Highlight everything right away (so it’s visible before first keystroke)
-	M.update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
+	update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
 
-	-- Now read keystrokes
+	-- Read keystrokes.
 	while true do
 		local ok, key = pcall(vim.fn.getchar)
 		if not ok or not key then
@@ -179,9 +222,9 @@ function M.start_selection_loop(
 			if #user_input > 0 then
 				user_input = user_input:sub(1, -2)
 			else
-				-- No more input to delete => cancel
+				-- If backspace when there's no user-input to delete then cancel.
 				local windows = M.get_windows_to_check()
-				M.clear_extmarks(windows, highlight_ns, dim_ns)
+				clear_extmarks(windows, highlight_ns, dim_ns)
 				return
 			end
 		else
@@ -189,20 +232,20 @@ function M.start_selection_loop(
 			user_input = user_input .. char
 		end
 
-		M.update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
-		local matches = M.get_matching_candidates(candidates, user_input)
+		update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
+		local matches = get_matching_candidates(candidates, user_input)
 
-		-- If no matches, cancel
+		-- If no matches, cancel.
 		if #matches == 0 then
 			local windows = M.get_windows_to_check()
-			M.clear_extmarks(windows, highlight_ns, dim_ns)
+			clear_extmarks(windows, highlight_ns, dim_ns)
 			return
 		end
 
-		-- If exactly one match with a fully typed label, we’re done
+		-- If exactly one match with a fully typed label, we’re done.
 		if #matches == 1 and #user_input == required_length then
 			local windows = M.get_windows_to_check()
-			M.clear_extmarks(windows, highlight_ns, dim_ns)
+			clear_extmarks(windows, highlight_ns, dim_ns)
 			vim.schedule(function()
 				on_complete(matches[1])
 			end)
