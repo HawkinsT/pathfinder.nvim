@@ -1,5 +1,5 @@
-*pathfinder.txt*	Enhanced multiline gf/gF and file searching for Neovim
-			Version 0.5.0	            Last change: 2025 April 14
+*pathfinder.txt*		    Enhanced file and URL searching for Neovim
+						    Last change: 2025 April 16
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
@@ -9,12 +9,14 @@ Enhanced multiline search for Neovim ............................. |pathfinder|
 Summary .................................................. |pathfinder-summary|
 Default Usage ...................................... |pathfinder-default-usage|
 Configuration ...................................... |pathfinder-configuration|
-    Search Behaviour ............................ |pathfinder-search-behaviour|
-    File Resolution .............................. |pathfinder-file-resolution|
-    User Interaction ............................ |pathfinder-user-interaction|
+    Search Behaviour ..................... |pathfinder-config-search-behaviour|
+    File Resolution ....................... |pathfinder-config-file-resolution|
+    URL Resolution ......................... |pathfinder-config-url-resolution|
+    User Interaction ..................... |pathfinder-config-user-interaction|
 Functions .............................................. |pathfinder-functions|
     select_file() .................................... |pathfinder-select_file|
     select_file_line() .......................... |pathfinder-select_file_line|
+    select_url() ...................................... |pathfinder-select_url|
 Filetype Overrides ............................ |pathfinder-filetype-overrides|
 Custom Key Mappings .............................. |pathfinder-custom-key-maps|
 
@@ -22,25 +24,32 @@ Custom Key Mappings .............................. |pathfinder-custom-key-maps|
 							  *pathfinder-summary*
 SUMMARY
 
-pathfinder is a Neovim plugin that extends the built-in `gf` and `gF` commands
-for navigating to files under the cursor. It enhances file resolution with:
+Pathfinder is a Neovim plugin that extends the `gf`, `gF`, and `gx` commands
+for navigating to files and URLs.
+
+It enhances file/URL resolution with:
 
   - Whole document/line look-ahead with optional count.
-  - Nearest file before cursor in single line mode if no file after.
   - Optional user selection for ambiguous file names.
-  - Designated `filetype` enclosures.
-  - Configurable file opening modes (e.g. current buffer, split, tab).
+  - Support for username/repo.
+  - Designated multi-character enclosure pairs.
+  - Configurable file opening modes (e.g. edit, split, or even a function).
   - `Filetype`-specific overrides for all config options.
   - Future extensibility for use with external programs.
-  - Retains compatibility with (almost) all standard `gf` and `gF` behaviour.
+  - Retains compatibility with (almost) all standard `gf`, `gF`, and `gx` behaviour.
 
-By default, this plugin remaps `gf` and `gF` to provide these enhancements,
+By default, this plugin remaps `gf`, `gF`, and `gx` to provide these enhancements,
 although this can be disabled and custom keymaps used.
 
-The function |pathfinder-select_file| is also provided, but unmapped by
-default. Inspired by other plugins, namely `EasyMotion`, it displays all file
-targets in the current visible area, allowing the user to open any in as few
+The functions |select_file()|, |select_file_line()|, and |select_url()| are
+also provided, mapped to `<leader>gf`, `<leader>gF`, and `<leader>gx` by
+default. Inspired by other plugins, namely `EasyMotion`, these functions
+displays all file (with optional line number) or URL/repo targets in the
+current visible window area, allowing the user to open any in as few
 keystrokes as possible.
+
+See the Neovim |gf|, |gF|, and |gx| documentation for more complete usage
+including variables. Where usage differs from this is noted herein.
 
 Note that this plugin is only compatible with Neovim versions >= 0.9.0.
 
@@ -48,7 +57,7 @@ Note that this plugin is only compatible with Neovim versions >= 0.9.0.
 						    *pathfinder-default-usage*
 DEFAULT USAGE 
 
-When active, `[count]gf` opens the count'th valid file after the cursor,
+When active, `[count]gf` opens the count'th valid file at or after the cursor,
 scanning over multiple lines, checking the current working directory and
 `vim.bo.path`. It will try to add file extensions where specified in
 |pathfinder-configuration| or by 'suffixesadd', and search for files in both
@@ -72,6 +81,9 @@ behaviour can be toggled by |offer_multiple_options|, with the first file found
 found with a matching extension in |associated_filetypes| of 'suffixesadd' being
 selected automatically if this is false.
 
+Like `[count]gf`, `[count]gx` will open the count'th valid URL or repository
+(specified by |url_providers|) at or after the cursor. Like `gx`
+
 Key Features: ~
   - Resolves files with extensions from |associated_filetypes| and 'suffixesadd'.
   - Uses 'includeexpr' for custom file name candidate modification.
@@ -79,18 +91,18 @@ Key Features: ~
   - Scans unenclosed words if |scan_unenclosed_words| is enabled.
   - Displays a selection menu for multiple valid files if
     |offer_multiple_options| is true.
+  - URLs and git software forges tested in order for opening web links.
 
 With Counts: ~
   - `gf`        Opens the next valid file.
   - `gF`        Opens the next file, taking optional line count, e.g. `file:10`.
+  - `gx`        Attempts to open the next valid web link (URL or git repo).
   - `[count]gf` Opens the count'th valid file.
   - `[count]gF` Opens the next valid file with the cursor at the count'th line.
-
- See the |gf| and |gF| documentation for more complete usage including
- variables. Where usage differs from this is noted herein.
+  - `[count]gx` Attempts to open the count'th valid web link (URL or git repo).
 
 ==============================================================================
-							   *pathfinder-config*
+						    *pathfinder-configuration*
 CONFIGURATION 
 
  Configure the plugin by calling `require('pathfinder').setup(config)`, where
@@ -106,6 +118,9 @@ Defaults ~
 	reuse_existing_window = true,
  	gF_count_behaviour = "nextfile",
  	associated_filetypes = {},
+	url_providers = {
+	    "https://github.com/%s.git",
+	},
  	enclosure_pairs = {
 	    ["("] = ")",
 	    ["{"] = "}",
@@ -115,10 +130,12 @@ Defaults ~
 	    ["'"] = "'",
 	    ["`"] = "`",
 	},
+	url_enclosure_pairs = nil,
 	includeexpr = "",
 	ft_overrides = {},
-	offer_multiple_options = true,
 	remap_default_keys = true,
+	offer_multiple_options = true,
+	pick_from_all_windows = true,
 	selection_keys = { "a", "s", "d", "f", "j", "k", "l" },
     })
 <
@@ -126,8 +143,8 @@ Defaults ~
 						 *pathfinder-highlight-groups*
 Highlight Groups ~
 
-The |select_file| and |select_file_line| functions use the following default highlight groups, which
-may be overridden:
+The |select_file| and |select_file_line| functions use the following default
+highlight groups, which may be overridden:
 
 >lua
     vim.api.nvim_set_hl(0, "PathfinderDim",	        { fg = "#808080", bg = "none" })
@@ -237,7 +254,7 @@ Default:
     Enclosures can be one or multiple characters in length, e.g. parts of html
     tags.
 
-						       *pathfinder-includeexpr
+						      *pathfinder-includeexpr*
 includeexpr ~
 Default: `""` (string)
 
@@ -271,6 +288,17 @@ Default: `{}` (table)
      `ft/tex.lua`). See |filetype-overrides|. User-defined `ft_overrides` take
      precedence over these handlers.
 
+-------------------------------------------------------------------------------
+					    *pathfinder-config-url-resolution*
+URL RESOLUTION
+
+					      *pathfinder-url_enclosure_pairs*
+url_enclosure_pairs ~
+Default: `nil` (table)
+
+    If set, then functions as |enclosure_pairs|, superseding this options for
+    URL/repo selection targets.
+
 ------------------------------------------------------------------------------
 					  *pathfinder-config-user-interaction*
 USER INTERACTION
@@ -295,8 +323,8 @@ Default: `true` (boolean)
 pick_from_all_windows ~
 Default: `true` (boolean)
 
-    If `true`, `select_file()` and `select_file_line()` will offer targets
-    across all windows, not just the active window.
+    If `true`, `select_file()`, `select_file_line()`, and `select_url()` will
+    offer targets across all visible windows, not just the active window.
 
 						   *pathfinder-selection_keys*
 selection_keys ~
@@ -309,32 +337,35 @@ Default: `{ "a", "s", "d", "f", "j", "k", "l" }` (string[])
 							*pathfinder-functions*
 FUNCTIONS
 
-						     *pathfinder-select_file*
+						      *pathfinder-select_file*
 select_file() ~
 Inspired by plugins such as `EasyMotion` and `Hop`, this function displays all
 visible valid files in the current buffer and allows the user to select which
 one to open based on motion targets. This function is mapped to `<leader>gf`
 by default.
 
+Function-specific options are |reuse_existing_window|,
+|pick_from_all_windows|, and |selection_keys|.
+
 The colour scheme used by this function is configurable via highlight groups.
 See |pathfinder-highlight-groups|.
 
 Note that |offer_multiple_options| isn't currently implemented with this
 function.
 
-
-						     *pathfinder-select_file_line*
+						 *pathfinder-select_file_line*
 select_file_line() ~
-Inspired by plugins such as `EasyMotion` and `Hop`, this function displays all
-visible valid files in the current buffer and allows the user to select which
-one to open on line based on motion targets. 
-This function is mapped to `<leader>gF` by default.
+Similar to `select_file()`, but also displays and navigates to associated line
+numbers (if present). This function is mapped to `<leader>gF` by default.
 
-The colour scheme used by this function is configurable via highlight groups.
-See |pathfinder-highlight-groups|.
+						       *pathfinder-select_url*
+select_url() ~
+Similar to `select_file()`, but displays and navigates to URLs and repos (as
+specified by |url_providers|). This function is mapped to `<leader>gx` by
+default.
 
-Note that |offer_multiple_options| isn't currently implemented with this
-function.
+Function-specific options are |url_enclosure_pairs|, |pick_from_all_windows|,
+and |selection_keys|.
 
 
 ==============================================================================
@@ -362,7 +393,9 @@ setting your own key mappings. For example:
  })
  vim.keymap.set('n', 'gf', require('pathfinder').gf)
  vim.keymap.set('n', 'gF', require('pathfinder').gF)
+ vim.keymap.set('n', 'gx', require('pathfinder').gx)
  vim.keymap.set('n', '<leader>gf', require('pathfinder').select_file)
  vim.keymap.set('n', '<leader>gF', require('pathfinder').select_file_line)
+ vim.keymap.set('n', "<leader>gx", require('pathfinder').select_url)
 <
 vim:tw=78:ts=8:noet:ft=help:norl:

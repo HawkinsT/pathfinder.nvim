@@ -1,6 +1,6 @@
 # Pathfinder: Enhanced File Navigation for Neovim
 
-**Pathfinder** is a Neovim plugin that enhances the built-in `gf` and `gF` commands as a highly customizable, multiline, drop-in replacement. It also provides an [EasyMotion](https://github.com/easymotion/vim-easymotion)-like file picker, making file hopping effortless.
+**Pathfinder** is a Neovim plugin that enhances the built-in `gf`, `gF`, and `gx` commands as a highly customizable, multiline, drop-in replacement. It also provides an [EasyMotion](https://github.com/easymotion/vim-easymotion)-like file picker, making file hopping effortless.
 
 ---
 
@@ -13,14 +13,17 @@ Pathfinder enhances Neovim's native file navigation by extending `gf` (go to fil
 ## Key Features
 
 - **Enhanced `gf` and `gF`**: Navigate to the count'th file after the cursor.
+- **Enhanced `gx`**: Navigate to the count'th URL or Git repo after the cursor.
 - **Multiline Awareness**: Scans beyond the current line with configurable limits.
 - **Compatibility**: Retains standard `gf` and `gF` behaviour, including `suffixesadd` and `includeexpr`.
 - **Smarter File Resolving**: Resolves complex file patterns `gf` and `gF` may miss.
-- **Enclosure Support**: Recognizes file paths in quotes, brackets, or custom, multi-character delimiters.
+- **Smarter URL Resolving**: Resolves `username/repo` combinations against a list of URLs.
+- **Enclosure Support**: Recognize file paths and URLs between user-specified multi-character delimiters.
 - **Interactive Selection**: Choose from multiple matches with a simple prompt when ambiguity emerges.
 - **Flexible Opening Modes**: Open files in the current buffer, splits, tabs, or even external programs.
 - **Quick File Picker**: Use `select_file()` to jump to any visible file in the buffer, mapped to `<leader>gf` by default.
 - **Quick File Picker with line**: Use `select_file_line()` to jump to any visible file with line in the buffer, mapped to `<leader>gF` by default.
+- **Quick URL Picker**: Use `select_url()` to jump to any visible URL or online git repository, mapped to `<leader>gx` by default.
 
 ---
 
@@ -46,10 +49,11 @@ After installation, you can optionally configure Pathfinder (see below) or start
 
 ## Basic Usage
 
-Pathfinder works out of the box by enhancing `gf` and `gF`. Here’s how it behaves:
+Pathfinder works out of the box by enhancing `gf`, `gF`, and `gx`. Here’s how it behaves:
 
 - **`gf`**: Opens the next valid file after the cursor. Use `[count]gf` to jump to the _count'th_ file.
 - **`gF`**: Opens the next file and places the cursor at the _count'th_ line.
+- **`gx`**: Opens the next valid URL after the cursor. Use `[count]gx` to jump to the _count'th_ URL.
 - **Examples**:
   - `2gf` → Opens the second valid file after the cursor.
   - `10gF` → Opens the next valid file after the cursor at line 10.
@@ -57,9 +61,9 @@ Pathfinder works out of the box by enhancing `gf` and `gF`. Here’s how it beha
 
 If multiple files match (e.g. `eval.c` and `eval.h`), Pathfinder prompts you to choose, unless configured to always select the first match.
 
-For a more visual workflow, you may use the `select_file()` or `select_file_line()` function, mapped to `<leader>gf` and `leader<gF>` by default, which is inspired by [EasyMotion](https://github.com/easymotion/vim-easymotion) and [Hop](https://github.com/hadronized/hop.nvim).
+For a more visual workflow, you may use the `select_file()`, `select_file_line()`, and `select_url()` functions, mapped to `<leader>gf`, `leader<gF>`, and `leader<gx>` by default; inspired by the likes of [EasyMotion](https://github.com/easymotion/vim-easymotion) and [Hop](https://github.com/hadronized/hop.nvim).
 
-This displays all visible files in the buffer, letting you pick one with minimal keypresses.
+This displays all visible files or web links buffer or across all visible windows, letting you pick one with minimal key presses.
 
 ---
 
@@ -78,6 +82,9 @@ require('pathfinder').setup({
 
 	-- File resolution settings
 	associated_filetypes = {}, -- File extensions that should be tried (also see `suffixesadd`)
+    url_providers = { -- List of software forges to try when resolving username/repo links
+		"https://github.com/%s.git",
+	},
 	enclosure_pairs = { -- Define all file path delimiters to search between
 		["("] = ")",
 		["{"] = "}",
@@ -87,6 +94,7 @@ require('pathfinder').setup({
 		["'"] = "'",
 		["`"] = "`",
 	},
+	url_enclosure_pairs = nil, -- If set, this will supersede enclosure_pairs for URL picking
 	includeexpr = "", -- Helper function to set `includeexpr`
 	ft_overrides = {}, -- Filetype-specific settings
 
@@ -102,7 +110,7 @@ Filetype-specific overrides may be specified like so:
 
 ```lua
 require('pathfinder').setup({
-    ft_overrides = {                 -- Filetype-specific settings
+    ft_overrides = {
         lua = {
             associated_filetypes = { ".lua", ".tl" },
             enclosure_pairs = {
@@ -136,8 +144,10 @@ vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
   ```lua
     vim.keymap.set('n', 'gf', require('pathfinder').gf)
     vim.keymap.set('n', 'gF', require('pathfinder').gF)
+    vim.keymap.set('n', 'gx', require('pathfinder').gx)
     vim.keymap.set('n', '<leader>gf', require('pathfinder').select_file)
     vim.keymap.set('n', '<leader>gF', require('pathfinder').select_file_line)
+    vim.keymap.set('n', '<leader>gx', require('pathfinder').select_url)
   ```
 
 ---
