@@ -5,6 +5,16 @@ local vim = vim
 local config = require("pathfinder.config")
 local utils = require("pathfinder.utils")
 
+local patterns = {
+	{ pattern = "(%S-)%s*[%s,:@%(]%s*(%d+)" },
+	{ pattern = "(%S-)%s*[%s,:@%(]line%s*(%d+)" },
+	{ pattern = "(%S-)%s*[%s,:@%(]on%s*line%s*(%d+)" },
+}
+
+local trailing_patterns = {
+	{ pattern = "^,?%s*line%s+(%d+)" }, -- e.g. ", line 168"
+}
+
 function M.deduplicate_candidates(candidates)
 	local merged = {}
 	for _, cand in ipairs(candidates) do
@@ -71,22 +81,8 @@ local function strip_nested_enclosures(str, pairs)
 	return str, removed
 end
 
---stylua: ignore
-M.patterns = {
-    { pattern = "(%S+)%s*%(%s*(%d+)%s*%)" },          -- e.g. "file (line)"
-    { pattern = "(%S+)%s*:%s*(%d+)%s*:%s*(%d+)%S*" }, -- e.g. "file:line:column"
-    { pattern = "(%S+)%s*:%s*(%d+)%S*" },             -- e.g. "file:line"
-    { pattern = "(%S+)%s*@%s*(%d+)%S*" },             -- e.g. "file @ line"
-    { pattern = "(%S+)%s+(%d+)%S*" },                 -- e.g. "file line"
-}
-
---stylua: ignore
-M.trailing_patterns = {
-    { pattern = "^%s*,?%s*line%s+(%d+)" },  -- e.g. ", line 168"
-}
-
-function M.parse_trailing_line_number(str)
-	for _, pat in ipairs(M.trailing_patterns) do
+local function parse_trailing_line_number(str)
+	for _, pat in ipairs(trailing_patterns) do
 		local match_s, match_e, line_str = str:find(pat.pattern)
 		if match_s then
 			return tonumber(line_str), match_e
@@ -98,7 +94,7 @@ end
 function M.parse_filename_and_linenr(str)
 	str = str:gsub("\\ ", " ")
 
-	for _, pat in ipairs(M.patterns) do
+	for _, pat in ipairs(patterns) do
 		local filename, linenr_str = str:match(pat.pattern)
 		if filename and linenr_str then
 			filename = vim.trim(filename)
@@ -311,7 +307,7 @@ local function parse_words_in_segment(
 	local segment = line:sub(start_pos, end_pos)
 	local structured_matches = {}
 
-	for _, pat in ipairs(M.patterns) do
+	for _, pat in ipairs(patterns) do
 		local search_offset = 1
 		while search_offset <= #segment do
 			local match_s, match_e, filename, linenr_str = segment:find(pat.pattern, search_offset)
@@ -402,7 +398,7 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 	local order = 0
 
 	-- 1. Match structured patterns across the entire line.
-	for _, pat in ipairs(M.patterns) do
+	for _, pat in ipairs(patterns) do
 		local search_offset = 1
 		while search_offset <= #line do
 			local match_s, match_e, filename, linenr_str = line:find(pat.pattern, search_offset)
