@@ -2,6 +2,8 @@
 
 **Pathfinder** is a Neovim plugin that enhances the built-in `gf`, `gF`, and `gx` commands as a highly customizable, multiline, drop-in replacement. It also provides an [EasyMotion](https://github.com/easymotion/vim-easymotion)-like file picker, making file hopping effortless.
 
+<video src=https://github.com/user-attachments/assets/f34bc9a9-439e-470a-bdc6-78864ceb7001></video>
+
 ---
 
 ## What is Pathfinder?
