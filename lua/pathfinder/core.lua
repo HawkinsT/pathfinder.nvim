@@ -121,15 +121,13 @@ local function select_file(is_gF)
 			visual_select.highlight_candidate(cand, prefix, ns)
 		end
 	end, function(sel)
-		api.nvim_set_current_win(sel.win_id)
-		vim.cmd("redraw")
-		-- try_open_file(sel, is_gF, sel.linenr or 1)
-		-- local buf = api.nvim_win_get_buf(sel.win_id)
 		api.nvim_win_call(sel.win_id, function()
 			validation.validate_candidate(sel.filename, function(chosen_path)
 				if chosen_path and chosen_path ~= "" then
 					sel.open_path = chosen_path
-					try_open_file(sel, is_gF, sel.linenr or 1)
+					vim.schedule(function()
+						try_open_file(sel, is_gF, sel.linenr)
+					end)
 				else
 					vim.notify("No file selected or resolved", vim.log.levels.WARN)
 				end
