@@ -100,7 +100,6 @@ local function select_file(is_gF)
 			scan_fn = scan_fn,
 			skip_folds = true,
 			validate_fn = validate_fn,
-			dedupe_fn = candidates.deduplicate_candidates,
 		})
 
 		vim.list_extend(all_raw, wins_raw)

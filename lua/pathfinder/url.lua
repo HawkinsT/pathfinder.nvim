@@ -215,7 +215,6 @@ function M.gx()
 		scan_fn = scan_line_for_urls,
 		skip_folds = false,
 		validate_fn = nil,
-		dedupe_fn = candidates.deduplicate_candidates,
 	})
 
 	local filtered = {}
