@@ -121,6 +121,16 @@ local function scan_line_for_urls(line_text, lnum, physical_lines)
 		scan_cfg = vim.tbl_extend("force", {}, cfg, {
 			enclosure_pairs = cfg.url_enclosure_pairs,
 		})
+
+		-- Rebuild cache, replacing enclosure_pairs with url_enclosure_pairs.
+		local openings = {}
+		for open_delim, _ in pairs(scan_cfg.enclosure_pairs) do
+			table.insert(openings, open_delim)
+		end
+		table.sort(openings, function(a, b)
+			return #a > #b
+		end)
+		scan_cfg._cached_openings = openings
 	else
 		scan_cfg = cfg
 	end
