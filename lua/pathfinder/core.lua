@@ -75,7 +75,7 @@ local function select_file(is_gF)
 			return candidates.scan_line(line_text, lnum, 1, cfg.scan_unenclosed_words, physical_lines, cfg)
 		end
 
-		-- Wrap validation in the individual buffer’s context.
+		-- Wrap validation in the individual buffer's context.
 		local validate_fn = function(cand)
 			local ok
 			api.nvim_buf_call(buf, function()
@@ -107,7 +107,7 @@ local function select_file(is_gF)
 	end
 
 	if #all_raw == 0 then
-		vim.notify("No valid file candidates in visible windows", vim.log.levels.INFO)
+		vim.notify("No valid file targets in visible windows", vim.log.levels.INFO)
 		return
 	end
 
@@ -217,11 +217,93 @@ local function custom_gf(is_gF, count)
 			end
 			try_open_file(c, is_gF, linenr)
 		elseif #valids == 0 then
-			vim.notify("E447: No valid file targets found", vim.log.levels.ERROR)
+			vim.notify("No valid file targets found", vim.log.levels.INFO)
 		else
-			vim.notify("Only " .. #valids .. " file candidate(s) available", vim.log.levels.WARN)
+			vim.notify("No file target found (" .. #valids .. " available)", vim.log.levels.INFO)
 		end
 	end)
+end
+
+-- Jump to the count'th valid file target.
+-- Direction: 1 -> next; -1 -> previous.
+local function jump_file(direction, count)
+	count = count or (vim.v.count ~= 0 and vim.v.count or 1)
+
+	local buf, win = api.nvim_get_current_buf(), api.nvim_get_current_win()
+	local curln = vim.fn.line(".")
+	local ccol = vim.fn.col(".")
+
+	-- Scan range: current line to top of document or current line to bottom of document
+	local start_ln = (direction == 1) and curln or 1
+	local end_ln = (direction == 1) and vim.fn.line("$") or curln
+
+	-- Collect and deduplicate raw candidates.
+	local raw = candidates.collect_candidates_in_range(
+		buf,
+		win,
+		start_ln,
+		end_ln,
+		function(line, lnum, phys)
+			return candidates.scan_line(line, lnum, nil, config.config.scan_unenclosed_words, phys, config.config)
+		end,
+		false -- don't skip folds
+	)
+	raw = candidates.deduplicate_candidates(raw)
+
+	-- Filter out candidate at the cursor to prevent next/prev from re-selecting it.
+	local filtered = {}
+	for _, c in ipairs(raw) do
+		local overlaps = (c.lnum == curln and c.start_col <= ccol and c.finish >= ccol)
+		if not overlaps then
+			if direction == 1 then
+				if c.lnum > curln or (c.lnum == curln and c.start_col > ccol) then
+					table.insert(filtered, c)
+				end
+			else
+				if c.lnum < curln or (c.lnum == curln and c.finish < ccol) then
+					table.insert(filtered, c)
+				end
+			end
+		end
+	end
+
+	-- Reverse list direction if backwards search, such that closer file candidates are tried first.
+	if direction == -1 then
+		local rev = {}
+		for i = #filtered, 1, -1 do
+			rev[#rev + 1] = filtered[i]
+		end
+		filtered = rev
+	end
+
+	-- Temporarily disable file select prompt.
+	local user_opt = config.config.offer_multiple_options
+	config.config.offer_multiple_options = false
+
+	-- Validate in sequence and jump to the count'th valid file.
+	validation.collect_valid_candidates_seq(filtered, count, function(valids, _)
+		config.config.offer_multiple_options = user_opt
+
+		local direc_name = direction == 1 and "next" or "previous"
+
+		if #valids >= count then
+			local c = valids[count]
+			api.nvim_win_set_cursor(0, { c.lnum, c.start_col - 1 })
+		else
+			vim.notify(
+				string.format("No %s file target found (%d available)", direc_name, #valids),
+				vim.log.levels.INFO
+			)
+		end
+	end)
+end
+
+function M.next_file(count)
+	jump_file(1, count)
+end
+
+function M.prev_file(count)
+	jump_file(-1, count)
 end
 
 function M.select_file()

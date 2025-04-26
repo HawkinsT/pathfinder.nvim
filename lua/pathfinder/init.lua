@@ -70,6 +70,8 @@ if ensure_neovim_version() then
 	M.gf = core.gf
 	M.gF = core.gF
 	M.gx = url.gx
+	M.next_file = core.next_file
+	M.prev_file = core.prev_file
 	M.select_file = core.select_file
 	M.select_file_line = core.select_file_line
 	M.select_url = url.select_url
@@ -87,6 +89,8 @@ if ensure_neovim_version() then
 			vim.keymap.set("n", "gf", M.gf, { silent = true, desc = "Enhanced go to file" })
 			vim.keymap.set("n", "gF", M.gF, { silent = true, desc = "Enhanced go to file (line)" })
             vim.keymap.set("n", "gx", M.gx, { silent = true, desc = "Open URL/Git repository" })
+			vim.keymap.set("n", "]f", M.next_file, { silent = true, desc = "Jump to next valid file name" })
+			vim.keymap.set("n", "[f", M.prev_file, { silent = true, desc = "Jump to previous valid file name" })
 			vim.keymap.set(
                 "n",
                 "<leader>gf",
@@ -112,14 +116,16 @@ if ensure_neovim_version() then
 	setup_autocommands()
 	setup_keymaps()
 else
-	local function noop() end
-	M.setup = noop
-	M.gf = noop
-	M.gF = noop
-	M.gx = noop
-	M.select_file = noop
-	M.select_file_line = noop
-	M.select_url = noop
+	local function nop() end
+	M.setup = nop
+	M.gf = nop
+	M.gF = nop
+	M.gx = nop
+	M.next_file = nop
+	M.prev_file = nop
+	M.select_file = nop
+	M.select_file_line = nop
+	M.select_url = nop
 end
 
 return M
