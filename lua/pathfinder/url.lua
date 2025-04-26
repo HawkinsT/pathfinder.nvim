@@ -12,7 +12,7 @@ local highlight_ns = vim.api.nvim_create_namespace("pathfinder_url_highlight")
 local dim_ns = vim.api.nvim_create_namespace("pathfinder_url_dim")
 
 local patterns = {
-	url = "https?://[%w%-_.%?%/%%:=&]+",
+	url = "[Hh][Tt][Tt][Pp][Ss]?://[%w%-_.%?%/%%:=&]+",
 	repo = "^[%w._%-]+/[%w._%-]+$",
 }
 
