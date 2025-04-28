@@ -1,28 +1,33 @@
 local M = {}
 
 local vim = vim
+local fn = vim.fn
 
-local config = require("pathfinder.config")
+local config = require("pathfinder.config").config
 local utils = require("pathfinder.utils")
 
 -- Checks if the resolved candidate file exists. If not, appends each extension
 -- from the combined suffix list until valid file targets are found.
 --
 -- If multiple valid targets are found and |offer_multiple_options| is enabled,
--- then prompt the user with vim.fn.input. In "auto mode" (auto_select==true),
--- the first option is automatically chosen with no prompt.
+-- then prompt the user with vim.fn.input. If auto_select == true, the first
+-- option is automatically chosen with no prompt.
 function M.validate_candidate(candidate, callback, auto_select)
-	local resolved = utils.resolve_file(candidate)
 	local unique_exts = utils.get_combined_suffixes()
+	local ui_select = vim.schedule_wrap(vim.ui.select)
+	local buf_path = vim.bo.path
+	local includeexpr = vim.bo.includeexpr
+
+	local resolved = utils.resolve_file(candidate)
 	local valid_candidates = {}
 	local seen = {}
 
 	local function check_candidate(path)
-		local normalized_file_path = vim.fn.fnamemodify(path, ":p")
+		local normalized_file_path = fn.fnamemodify(path, ":p")
 		if utils.is_valid_file(normalized_file_path) and not seen[normalized_file_path] then
 			table.insert(valid_candidates, normalized_file_path)
 			seen[normalized_file_path] = true
-			return not (config.config.offer_multiple_options or auto_select)
+			return not (config.offer_multiple_options or auto_select)
 		end
 		return false
 	end
@@ -40,9 +45,9 @@ function M.validate_candidate(candidate, callback, auto_select)
 	end
 
 	-- Also check the path.
-	local path_files = vim.fn.globpath(vim.bo.path, candidate, false, true)
+	local path_files = fn.globpath(buf_path, candidate, false, true)
 	for _, ext in ipairs(unique_exts) do
-		vim.list_extend(path_files, vim.fn.globpath(vim.bo.path, candidate .. ext, false, true))
+		vim.list_extend(path_files, fn.globpath(buf_path, candidate .. ext, false, true))
 	end
 	for _, file in ipairs(path_files) do
 		if check_candidate(file) then
@@ -52,10 +57,9 @@ function M.validate_candidate(candidate, callback, auto_select)
 	end
 
 	-- Also try this again with includeexpr, if set.
-	local includeexpr = vim.bo.includeexpr
 	if includeexpr and includeexpr ~= "" then
 		local expr_with_candidate = includeexpr:gsub("v:fname", vim.inspect(candidate))
-		local transformed = vim.fn.eval(expr_with_candidate)
+		local transformed = fn.eval(expr_with_candidate)
 		if transformed and transformed ~= candidate then
 			local resolved_transformed = utils.resolve_file(transformed)
 			if check_candidate(resolved_transformed) then
@@ -69,9 +73,9 @@ function M.validate_candidate(candidate, callback, auto_select)
 				end
 			end
 
-			local path_files_transformed = vim.fn.globpath(vim.bo.path, transformed, false, true)
+			local path_files_transformed = fn.globpath(buf_path, transformed, false, true)
 			for _, ext in ipairs(unique_exts) do
-				vim.list_extend(path_files_transformed, vim.fn.globpath(vim.bo.path, transformed .. ext, false, true))
+				vim.list_extend(path_files_transformed, fn.globpath(buf_path, transformed .. ext, false, true))
 			end
 			for _, file in ipairs(path_files_transformed) do
 				if check_candidate(file) then
@@ -87,11 +91,11 @@ function M.validate_candidate(candidate, callback, auto_select)
 		callback("")
 	elseif #valid_candidates == 1 or auto_select then
 		callback(valid_candidates[1])
-	elseif config.config.offer_multiple_options then
+	elseif config.offer_multiple_options then
 		local ok, _ = pcall(function()
-			-- Wrap to avoid some plugins that overwrite vim.ui.select not gaining focus.
-			local select = vim.schedule_wrap(vim.ui.select)
-			select(valid_candidates, {
+			-- Wrap to avoid some plugins that overwrite vim.ui.select, e.g.
+			-- telescope, not gaining focus.
+			ui_select(valid_candidates, {
 				prompt = "Multiple targets for " .. candidate .. " (q/Esc=cancel):",
 				format_item = function(item)
 					return item
@@ -118,7 +122,8 @@ function M.collect_valid_candidates_seq(candidates, count, final_callback)
 	local function process_next()
 		local c = candidates[i]
 		i = i + 1
-		local auto_flag = (#valids < (count - 1))
+		local force = c._force_auto
+		local auto_flag = force or (#valids < (count - 1))
 		M.validate_candidate(c.filename, function(open_path)
 			if open_path == nil then
 				cancelled = true

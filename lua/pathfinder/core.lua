@@ -147,7 +147,7 @@ end
 local function custom_gf(is_gF, count)
 	local user_count = count
 	local nextfile = config.config.gF_count_behaviour == "nextfile"
-	local idx = (nextfile and is_gF) and 1 or ((count == 0) and 1 or count)
+	local idx = (nextfile and is_gF) and 1 or vim.v.count1
 
 	local buf = api.nvim_get_current_buf()
 	local win = api.nvim_get_current_win()
@@ -274,14 +274,13 @@ local function jump_file(direction, count)
 		filtered = rev
 	end
 
-	-- Temporarily disable file select prompt.
-	local user_opt = config.config.offer_multiple_options
-	config.config.offer_multiple_options = false
+	-- Temporarily disable file select prompt for calling collect_valid_candidates_seq.
+	for _, c in ipairs(filtered) do
+		c._force_auto = true
+	end
 
 	-- Validate in sequence and jump to the count'th valid file.
 	validation.collect_valid_candidates_seq(filtered, count, function(valids, _)
-		config.config.offer_multiple_options = user_opt
-
 		local direc_name = direction == 1 and "next" or "previous"
 
 		if #valids >= count then
