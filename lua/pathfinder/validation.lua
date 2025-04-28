@@ -129,7 +129,7 @@ function M.collect_valid_candidates_seq(candidates, count, final_callback)
 			if cancelled or #valids == count or i > #candidates then
 				final_callback(valids, cancelled)
 			else
-				process_next()
+				vim.schedule(process_next)
 			end
 		end, auto_flag)
 	end
