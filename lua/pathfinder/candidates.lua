@@ -439,75 +439,81 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 				break
 			end
 		end
-		if is_matched then
-			goto continue
-		end
-
-		local open_pos, opening = find_next_opening(line, pos, openings)
-		if open_pos then
-			if scan_unenclosed_words and (open_pos > pos) then
-				order =
-					parse_words_in_segment(line, pos, open_pos - 1, lnum, min_col, results, order, physical_lines, cfg)
-			end
-			local closing = enclosure_pairs[opening]
-			local content_start_pos = open_pos + #opening
-			local close_pos = find_closing(line, content_start_pos, closing)
-			if close_pos then
-				local enclosed_str = line:sub(content_start_pos, close_pos - 1)
-				local escaped_space_count = 0
-				if enclosed_str:find("\\ ", 1, true) then
-					enclosed_str = enclosed_str:gsub("\\ ", function()
-						escaped_space_count = escaped_space_count + 1
-						return " "
-					end)
+		if not is_matched then
+			local open_pos, opening = find_next_opening(line, pos, openings)
+			if open_pos then
+				if scan_unenclosed_words and (open_pos > pos) then
+					order = parse_words_in_segment(
+						line,
+						pos,
+						open_pos - 1,
+						lnum,
+						min_col,
+						results,
+						order,
+						physical_lines,
+						cfg
+					)
 				end
-				local candidates_in_enclosure = process_candidate_string(
-					enclosed_str,
-					lnum,
-					open_pos,
-					min_col,
-					content_start_pos,
-					escaped_space_count,
-					physical_lines,
-					cfg
-				)
-				for _, cand in ipairs(candidates_in_enclosure) do
-					order = order + 1
-					cand.order = order
-					cand.type = "enclosures"
-					cand.spans = M.calculate_spans(cand.start_col, cand.finish - 1, physical_lines, lnum)
-					table.insert(results, cand)
-				end
-
-				-- Handle trailing line numbers.
-				local trailing_text = line:sub(close_pos + #closing)
-				local line_number, consumed = parse_trailing_line_number(trailing_text)
-				if line_number then
-					for _, cand in ipairs(candidates_in_enclosure) do
-						cand.linenr = line_number
-						local tmatch_s = trailing_text:find("%d+")
-						if tmatch_s then
-							local abs_ln_start = close_pos + #closing + tmatch_s - 1
-							local abs_ln_end = abs_ln_start + #tostring(line_number) - 1
-							cand.line_nr_spans = M.calculate_spans(abs_ln_start, abs_ln_end, physical_lines, lnum)
-						end
+				local closing = enclosure_pairs[opening]
+				local content_start_pos = open_pos + #opening
+				local close_pos = find_closing(line, content_start_pos, closing)
+				if close_pos then
+					local enclosed_str = line:sub(content_start_pos, close_pos - 1)
+					local escaped_space_count = 0
+					if enclosed_str:find("\\ ", 1, true) then
+						enclosed_str = enclosed_str:gsub("\\ ", function()
+							escaped_space_count = escaped_space_count + 1
+							return " "
+						end)
 					end
-					pos = close_pos + #closing + (consumed or 0)
+					local candidates_in_enclosure = process_candidate_string(
+						enclosed_str,
+						lnum,
+						open_pos,
+						min_col,
+						content_start_pos,
+						escaped_space_count,
+						physical_lines,
+						cfg
+					)
+					for _, cand in ipairs(candidates_in_enclosure) do
+						order = order + 1
+						cand.order = order
+						cand.type = "enclosures"
+						cand.spans = M.calculate_spans(cand.start_col, cand.finish - 1, physical_lines, lnum)
+						table.insert(results, cand)
+					end
+
+					-- Handle trailing line numbers.
+					local trailing_text = line:sub(close_pos + #closing)
+					local line_number, consumed = parse_trailing_line_number(trailing_text)
+					if line_number then
+						for _, cand in ipairs(candidates_in_enclosure) do
+							cand.linenr = line_number
+							local tmatch_s = trailing_text:find("%d+")
+							if tmatch_s then
+								local abs_ln_start = close_pos + #closing + tmatch_s - 1
+								local abs_ln_end = abs_ln_start + #tostring(line_number) - 1
+								cand.line_nr_spans = M.calculate_spans(abs_ln_start, abs_ln_end, physical_lines, lnum)
+							end
+						end
+						pos = close_pos + #closing + (consumed or 0)
+					else
+						pos = close_pos + #closing
+					end
 				else
-					pos = close_pos + #closing
+					pos = open_pos + #opening
 				end
 			else
-				pos = open_pos + #opening
+				-- No more opening delimiters found on the rest of the line.
+				-- If scanning unenclosed words, parse the remaining part of the line.
+				if scan_unenclosed_words then
+					order = parse_words_in_segment(line, pos, #line, lnum, min_col, results, order, physical_lines, cfg)
+				end
+				break
 			end
-		else
-			-- No more opening delimiters found on the rest of the line.
-			-- If scanning unenclosed words, parse the remaining part of the line.
-			if scan_unenclosed_words then
-				order = parse_words_in_segment(line, pos, #line, lnum, min_col, results, order, physical_lines, cfg)
-			end
-			break
 		end
-		::continue::
 	end
 
 	-- Sort the final results primarily by line, then start column, then original parse order.

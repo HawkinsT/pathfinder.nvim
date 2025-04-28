@@ -86,12 +86,9 @@ local function select_file(is_gF)
 
 			local wins_raw = picker.collect({
 				win_ids = { win },
-				buf_of_win = function()
-					return buf
-				end,
-				scan_range = function()
-					return s, e
-				end,
+				buf = buf,
+				start_line = s,
+				end_line = e,
 				scan_fn = scan_fn,
 				skip_folds = true,
 				validate_fn = validate_fn,

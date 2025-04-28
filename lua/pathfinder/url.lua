@@ -292,14 +292,10 @@ local function jump_url(direction, use_limit, action, count, validate)
 	-- Collect and deduplicate raw candidates.
 	local raw = picker.collect({
 		win_ids = { 0 },
-		buf_of_win = function()
-			return buf
-		end,
-		scan_range = function()
-			return first, last
-		end,
+		buf = buf,
+		start_line = first,
+		end_line = last,
 		scan_fn = M.scan_line_for_urls,
-		skip_folds = false,
 	})
 	local all = candidates.deduplicate_candidates(raw)
 	if #all == 0 then
