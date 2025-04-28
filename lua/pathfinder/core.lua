@@ -170,7 +170,7 @@ local function custom_gf(is_gF, count)
 		return candidates.scan_line(line, ln, minc, config.config.scan_unenclosed_words, phys, config.config)
 	end
 
-	local raw = candidates.collect_candidates_in_range(buf, win, curln, end_ln, scan_fn, true)
+	local raw = candidates.collect_candidates_in_range(buf, win, curln, end_ln, scan_fn, false)
 
 	if config.config.scan_unenclosed_words then
 		local fwd, cur_cand, ci = {}, nil, nil
