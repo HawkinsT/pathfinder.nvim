@@ -58,10 +58,11 @@ local function load_filetype_handlers()
 	end
 end
 
--- Initialize the plugin immediately on module load
+-- Initialize the plugin immediately on module load.
 if ensure_neovim_version() then
 	local config = require("pathfinder.config")
 	local core = require("pathfinder.core")
+	local hover = require("pathfinder.hover")
 	local url = require("pathfinder.url")
 
 	M.setup = config.setup
@@ -75,6 +76,7 @@ if ensure_neovim_version() then
 	M.select_file = core.select_file
 	M.select_file_line = core.select_file_line
 	M.select_url = url.select_url
+	M.hover_description = hover.hover_description
 
 	local function setup_autocommands()
 		vim.api.nvim_create_autocmd({ "FileType", "BufEnter", "VimEnter" }, {
@@ -130,6 +132,7 @@ else
 	M.select_file = nop
 	M.select_file_line = nop
 	M.select_url = nop
+	M.hover_description = nop
 end
 
 return M
