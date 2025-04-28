@@ -60,48 +60,45 @@ local function select_file(is_gF)
 	local all_raw = {}
 
 	for _, win in ipairs(visual_select.get_windows_to_check()) do
-		if not api.nvim_win_is_valid(win) then
-			goto continue
+		if api.nvim_win_is_valid(win) then
+			local buf = api.nvim_win_get_buf(win)
+			local cfg = config.get_config_for_buffer(buf)
+			local s = fn.line("w0", win)
+			local e = fn.line("w$", win)
+
+			local scan_fn = function(line_text, lnum, physical_lines)
+				return candidates.scan_line(line_text, lnum, 1, cfg.scan_unenclosed_words, physical_lines, cfg)
+			end
+
+			-- Wrap validation in the individual buffer's context.
+			local validate_fn = function(cand)
+				local ok
+				api.nvim_buf_call(buf, function()
+					validation.validate_candidate(cand.filename, function(res)
+						ok = (res and res ~= "")
+						if ok then
+							cand.open_path = res
+						end
+					end, true)
+				end)
+				return ok
+			end
+
+			local wins_raw = picker.collect({
+				win_ids = { win },
+				buf_of_win = function()
+					return buf
+				end,
+				scan_range = function()
+					return s, e
+				end,
+				scan_fn = scan_fn,
+				skip_folds = true,
+				validate_fn = validate_fn,
+			})
+
+			vim.list_extend(all_raw, wins_raw)
 		end
-
-		local buf = api.nvim_win_get_buf(win)
-		local cfg = config.get_config_for_buffer(buf)
-		local s = fn.line("w0", win)
-		local e = fn.line("w$", win)
-
-		local scan_fn = function(line_text, lnum, physical_lines)
-			return candidates.scan_line(line_text, lnum, 1, cfg.scan_unenclosed_words, physical_lines, cfg)
-		end
-
-		-- Wrap validation in the individual buffer's context.
-		local validate_fn = function(cand)
-			local ok
-			api.nvim_buf_call(buf, function()
-				validation.validate_candidate(cand.filename, function(res)
-					ok = (res and res ~= "")
-					if ok then
-						cand.open_path = res
-					end
-				end, true)
-			end)
-			return ok
-		end
-
-		local wins_raw = picker.collect({
-			win_ids = { win },
-			buf_of_win = function()
-				return buf
-			end,
-			scan_range = function()
-				return s, e
-			end,
-			scan_fn = scan_fn,
-			skip_folds = true,
-			validate_fn = validate_fn,
-		})
-
-		vim.list_extend(all_raw, wins_raw)
-		::continue::
 	end
 
 	if #all_raw == 0 then
@@ -226,7 +223,7 @@ end
 --- Jump to the count'th valid file target.
 -- Direction: 1 -> next; -1 -> previous.
 local function jump_file(direction, count)
-	count = count or (vim.v.count ~= 0 and vim.v.count or 1)
+	count = count or vim.v.count1
 
 	local buf = api.nvim_get_current_buf()
 	local win = api.nvim_get_current_win()
