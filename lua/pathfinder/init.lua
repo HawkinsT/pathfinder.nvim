@@ -4,10 +4,8 @@ local vim = vim
 
 M.version = "0.6.1"
 
-local required_nvim_version = { major = 0, minor = 9, patch = 0 }
+local required_nvim_version = { major = 0, minor = 10, patch = 0 }
 
---- Checks Neovim version compatibility.
----@return boolean True if version is compatible, false otherwise.
 local function ensure_neovim_version()
 	local current_nvim_version = vim.version()
 	for _, key in ipairs({ "major", "minor", "patch" }) do
@@ -72,6 +70,8 @@ if ensure_neovim_version() then
 	M.gx = url.gx
 	M.next_file = core.next_file
 	M.prev_file = core.prev_file
+	M.next_url = url.next_url
+	M.prev_url = url.prev_url
 	M.select_file = core.select_file
 	M.select_file_line = core.select_file_line
 	M.select_url = url.select_url
@@ -91,6 +91,8 @@ if ensure_neovim_version() then
             vim.keymap.set("n", "gx", M.gx, { silent = true, desc = "Open URL/Git repository" })
 			vim.keymap.set("n", "]f", M.next_file, { silent = true, desc = "Jump to next valid file name" })
 			vim.keymap.set("n", "[f", M.prev_file, { silent = true, desc = "Jump to previous valid file name" })
+			vim.keymap.set("n", "]u", M.next_url, { silent = true, desc = "Jump to next valid URL" })
+			vim.keymap.set("n", "[u", M.prev_url, { silent = true, desc = "Jump to previous valid URL" })
 			vim.keymap.set(
                 "n",
                 "<leader>gf",
@@ -123,6 +125,8 @@ else
 	M.gx = nop
 	M.next_file = nop
 	M.prev_file = nop
+	M.next_url = nop
+	M.prev_url = nop
 	M.select_file = nop
 	M.select_file_line = nop
 	M.select_url = nop

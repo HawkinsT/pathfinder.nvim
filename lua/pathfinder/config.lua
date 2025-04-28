@@ -9,6 +9,7 @@ M.default_config = {
 	open_mode = "edit",
 	reuse_existing_window = true,
 	gF_count_behaviour = "nextfile",
+	validate_urls = false,
 
 	-- File resolution settings:
 	associated_filetypes = {},
