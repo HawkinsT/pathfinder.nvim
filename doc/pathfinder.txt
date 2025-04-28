@@ -1,5 +1,5 @@
 *pathfinder.txt*		    Enhanced file and URL searching for Neovim
-						    Last change: 2025 April 16
+						    Last change: 2025 April 28
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
@@ -13,10 +13,16 @@ Configuration ...................................... |pathfinder-configuration|
     File Resolution ....................... |pathfinder-config-file-resolution|
     URL Resolution ......................... |pathfinder-config-url-resolution|
     User Interaction ..................... |pathfinder-config-user-interaction|
-Functions .............................................. |pathfinder-functions|
+Navigation Functions .................................. |pathfinder-navigation|
+    next_file() ........................................ |pathfinder-next_file|
+    prev_file() ........................................ |pathfinder-prev_file|
+    next_url() .......................................... |pathfinder-next_url|
+    prev_url() .......................................... |pathfinder-prev_url|
+UI Functions ........................................ |pathfinder-ui-functions|
     select_file() .................................... |pathfinder-select_file|
     select_file_line() .......................... |pathfinder-select_file_line|
     select_url() ...................................... |pathfinder-select_url|
+    hover_description() ........................ |pathfinder-hover_description|
 Filetype Overrides ............................ |pathfinder-filetype-overrides|
 Custom Key Mappings .............................. |pathfinder-custom-key-maps|
 
@@ -31,8 +37,8 @@ It enhances file/URL resolution with:
 
   - Whole document/line look-ahead with optional count.
   - Optional user selection for ambiguous file names.
-  - Support for username/repo.
-  - Designated multi-character enclosure pairs.
+  - Support for GitHub-style username/repo links.
+  - Configurable multi-character enclosure pairs.
   - Configurable file opening modes (e.g. edit, split, or even a function).
   - `Filetype`-specific overrides for all config options.
   - Future extensibility for use with external programs.
@@ -44,14 +50,13 @@ although this can be disabled and custom keymaps used.
 The functions |select_file()|, |select_file_line()|, and |select_url()| are
 also provided, mapped to `<leader>gf`, `<leader>gF`, and `<leader>gx` by
 default. Inspired by other plugins, namely `EasyMotion`, these functions
-displays all file (with optional line number) or URL/repo targets in the
-current visible window area, allowing the user to open any in as few
-keystrokes as possible.
+display all file-and-line or URL/repo targets in the current visible window
+area, allowing the user to open any in as few keystrokes as possible.
 
 See the Neovim |gf|, |gF|, and |gx| documentation for more complete usage
 including variables. Where usage differs from this is noted herein.
 
-Note that this plugin is only compatible with Neovim versions >= 0.9.0.
+Note that this plugin is only compatible with Neovim versions >= 0.10.0.
 
 ------------------------------------------------------------------------------
 						    *pathfinder-default-usage*
@@ -59,9 +64,9 @@ DEFAULT USAGE
 
 When active, `[count]gf` opens the count'th valid file at or after the cursor,
 scanning over multiple lines, checking the current working directory and
-`vim.bo.path`. It will try to add file extensions where specified in
-|pathfinder-configuration| or by 'suffixesadd', and search for files in both
-plain text (|scan_unenclosed_words|) and per-filetype enclosing characters
+`vim.bo.path`. It will automatically append extensions from
+|associated_filetypes| or 'suffixesadd', and search for files in both plain
+text (|scan_unenclosed_words|) and per-filetype enclosing characters
 (|enclosure_pairs|), depending on configuration.
 
 `[count]gF` usage is similar to `gf`, however its default behaviour is to open
@@ -117,6 +122,7 @@ Defaults ~
 	open_mode = "edit",
 	reuse_existing_window = true,
  	gF_count_behaviour = "nextfile",
+	validate_urls = false,
  	associated_filetypes = {},
 	url_providers = {
 	    "https://github.com/%s.git",
@@ -216,6 +222,14 @@ Default: `"nextfile"` (string)
     file index, same as `gf`). Note that `gF_count_behavior` also maps to this
     to account for regionalized spelling.
 
+						    *pathfinder-validate_urls*
+validate_urls ~
+Default: `false` boolean
+
+    Behaviour for `next_url` and `prev_url`. If `true`, all URL targets will
+    be validated (checked for a 2xx status code). This can significantly slow
+    down URL target navigation and so is disabled by default.
+
 -------------------------------------------------------------------------------
 					   *pathfinder-config-file-resolution*
 FILE RESOLUTION
@@ -229,9 +243,9 @@ Default: `{}` (string[])
     also used. If |offer_multiple_options| is `false`, the first valid
     extension found in this list, or if this fails, then the first valid
     extension found in 'suffixesadd', will be opened automatically. There is
-    no reason to prefer this over per-filetype 'suffixesadd' (which is the
-    preferred vim way), however this setting exists to avoid interfering with
-    other plugins which may set 'suffixesadd' directly.
+    typically no reason to prefer this over per-filetype 'suffixesadd' (which
+    is the preferred vim way), however this setting exists to avoid
+    interfering with other plugins which may set 'suffixesadd' directly.
 
 						  *pathfinder-enclosure_pairs*
 enclosure_pairs ~
@@ -251,8 +265,7 @@ Default:
 
     Table of opening and closing delimiters for file paths. This is used to
     identify file paths enclosed by characters in the current buffer.
-    Enclosures can be one or multiple characters in length, e.g. parts of html
-    tags.
+    Enclosures may span multiple characters (e.g. HTML tags).
 
 						      *pathfinder-includeexpr*
 includeexpr ~
@@ -334,8 +347,40 @@ Default: `{ "a", "s", "d", "f", "j", "k", "l" }` (string[])
     of non-qwerty layouts.
 
 ==============================================================================
-							*pathfinder-functions*
-FUNCTIONS
+					     *pathfinder-navigation-functions*
+NAVIGATION FUNCTIONS
+
+							*pathfinder-next_file*
+next_file(count) ~
+Navigates to the count'th valid file after the cursor in the current buffer.
+Mapped to `]f` by default.
+
+							*pathfinder-prev_file*
+prev_file(count) ~
+Navigates to the count'th valid file before the cursor in the current buffer.
+Mapped to `[f` by default.
+
+							 *pathfinder-next_url*
+next_url(count) ~
+Navigates to the count'th URL or username/repo target after the cursor in the
+current buffer. This looks for strings starting https:// or http://, as well
+as those matching a username/repo format. By default, links won't be validated
+(checking that they return a 2xx status code) due to performance concerns,
+however this may be enabled via setting |validate_urls|. Mapped to `]u` by
+default.
+
+							 *pathfinder-prev_url*
+prev_url(count) ~
+Navigates to the count'th URL or username/repo target before the cursor in the
+current buffer. This looks for strings starting https:// or http://, as well
+as those matching a username/repo format. By default, links won't be validated
+(checking that they return a 2xx status code) due to performance concerns,
+however this may be enabled via setting |validate_urls|. Mapped to `[u` by
+default.
+
+==============================================================================
+						     *pathfinder-ui-functions*
+UI FUNCTIONS
 
 						      *pathfinder-select_file*
 select_file() ~
@@ -367,12 +412,22 @@ default.
 Function-specific options are |url_enclosure_pairs|, |pick_from_all_windows|,
 and |selection_keys|.
 
-
+						*pathfinder-hover_description*
+hover_description() ~
+Tries to retrieve a description from the HTML header of the `<cfile>` under the
+cursor. This function has no default key mapping, but can be set with, e.g:
+>lua
+ vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description, {
+     desc = "Pathfinder: Hover",
+     noremap = true,
+     silent = true,
+ })
+<
 ==============================================================================
 					       *pathfinder-filetype-overrides*
 FILETYPE OVERRIDES
 
-This plugin provides a template for filetype-specific configurations, aiming
+This plugin includes a template for filetype-specific configurations, aiming
 to provide sensible defaults for common filetypes. Currently, only
 `ft/tex.lua` is included, although users are encouraged to submit pull
 requests for additional filetypes they would like to see supported. The added
@@ -384,9 +439,8 @@ overriding the default configuration should suffice.
 						  *pathfinder-custom-key-maps*
 CUSTOM KEY MAPPINGS
 
-If you wish to use custom key mappings without the default remapping, you can
-do so by setting |remap_default_keys| to `false` in the configuration and
-setting your own key mappings. For example:
+To use custom key mappings instead of the defaults, set |remap_default_keys|
+to `false` in the configuration. For example:
 >lua
  require('pathfinder').setup({
      remap_default_keys = false,
@@ -397,5 +451,10 @@ setting your own key mappings. For example:
  vim.keymap.set('n', '<leader>gf', require('pathfinder').select_file)
  vim.keymap.set('n', '<leader>gF', require('pathfinder').select_file_line)
  vim.keymap.set('n', "<leader>gx", require('pathfinder').select_url)
+ vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description, {
+     desc = "Pathfinder: Hover",
+     noremap = true,
+     silent = true,
+ })
 <
 vim:tw=78:ts=8:noet:ft=help:norl:

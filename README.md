@@ -18,14 +18,16 @@ Pathfinder enhances Neovim's native file navigation by extending `gf` (go to fil
 - **Enhanced `gx`**: Navigate to the count'th URL or Git repo after the cursor.
 - **Multiline Awareness**: Scans beyond the current line with configurable limits.
 - **Compatibility**: Retains standard `gf` and `gF` behaviour, including `suffixesadd` and `includeexpr`.
-- **Smarter File Resolving**: Resolves complex file patterns `gf` and `gF` may miss.
+- **Smarter File Resolving**: Resolves complex file patterns `gf` and `gF` miss.
 - **Smarter URL Resolving**: Resolves `username/repo` combinations against a list of URLs.
+- **Terminal Awareness**: Never loses track of your current directory when using terminal buffers.
 - **Enclosure Support**: Recognize file paths and URLs between user-specified multi-character delimiters.
 - **Interactive Selection**: Choose from multiple matches with a simple prompt when ambiguity emerges.
 - **Flexible Opening Modes**: Open files in the current buffer, splits, tabs, or even external programs.
 - **Quick File Picker**: Use `select_file()` to jump to any visible file in the buffer, mapped to `<leader>gf` by default.
 - **Quick File Picker with line**: Use `select_file_line()` to jump to any visible file with line in the buffer, mapped to `<leader>gF` by default.
 - **Quick URL Picker**: Use `select_url()` to jump to any visible URL or online git repository, mapped to `<leader>gx` by default.
+- **URL Hover Description**: Use `hover_description()` to retrieve a description for any URL or GitHub-style username/repo link under the cursor.
 
 ---
 
@@ -63,9 +65,13 @@ Pathfinder works out of the box by enhancing `gf`, `gF`, and `gx`. Here’s how 
 
 If multiple files match (e.g. `eval.c` and `eval.h`), Pathfinder prompts you to choose, unless configured to always select the first match.
 
+The new file/URL navigation commands: `]f`, `[f`, `]u`, and `[u`, are also provided, which optionally accept a count.
+
 For a more visual workflow, you may use the `select_file()`, `select_file_line()`, and `select_url()` functions, mapped to `<leader>gf`, `leader<gF>`, and `leader<gx>` by default; inspired by the likes of [EasyMotion](https://github.com/easymotion/vim-easymotion) and [Hop](https://github.com/hadronized/hop.nvim).
 
 This displays all visible files or web links buffer or across all visible windows, letting you pick one with minimal key presses.
+
+Pathfinder also provides `hover_description()` (unmapped by default), which will retrieve a description (if available) for any URL or repo under the cursor.
 
 ---
 
@@ -81,6 +87,7 @@ require('pathfinder').setup({
 	open_mode = "edit", -- Open files in the current buffer (:edit), accepts string or function
     reuse_existing_window = true, -- If file is already open, go to its active window (don't reopen)
 	gF_count_behaviour = "nextfile", -- [count]gF will open the next file at line `count`
+	validate_urls = false, -- If true, require all url targets for next/prev_url() to resolve (slow)
 
 	-- File resolution settings
 	associated_filetypes = {}, -- File extensions that should be tried (also see `suffixesadd`)
@@ -150,6 +157,11 @@ vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
     vim.keymap.set('n', '<leader>gf', require('pathfinder').select_file)
     vim.keymap.set('n', '<leader>gF', require('pathfinder').select_file_line)
     vim.keymap.set('n', '<leader>gx', require('pathfinder').select_url)
+     vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description, {
+         desc = "Pathfinder: Hover",
+         noremap = true,
+         silent = true,
+     })
   ```
 
 ---
@@ -162,7 +174,7 @@ Found a bug? Want to add support for a filetype? All contributions are welcome! 
 
 ## Requirements
 
-Neovim ≥ 0.9.0
+Neovim ≥ 0.10.0
 
 ---
 
