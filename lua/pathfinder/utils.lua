@@ -1,68 +1,69 @@
 local M = {}
 
 local vim = vim
+local api = vim.api
+local fn = vim.fn
+local uv = vim.uv or vim.loop
 
 local config = require("pathfinder.config")
 
--- Helper function to get the terminal's current working directory.
+local function is_dir(path)
+	local ok, stat = pcall(uv.fs_stat, path)
+	return ok and stat and stat.type == "directory"
+end
+
+-- CWD check for Linux (or WSL/Cygwin) using /proc filesystem.
+local function try_proc(pid)
+	local proc = "/proc/" .. pid .. "/cwd"
+	local cwd = uv.fs_realpath and uv.fs_realpath(proc) or fn.resolve(proc)
+	if cwd and is_dir(cwd) then
+		return cwd
+	end
+end
+
+-- CWD check for macOS and some BSD systems using lsof.
+local function try_lsof(pid)
+	local lines = fn.systemlist({ "lsof", "-a", "-d", "cwd", "-p", pid, "-Fn" })
+	for _, l in ipairs(lines) do
+		local dir = l:match("^n(.+)")
+		if dir and is_dir(dir) then
+			return dir
+		end
+	end
+end
+
+-- CWD check for BSD variants (if lsof fails): use procstat (FreeBSD) or fstat (others).
+local function try_bsd(pid)
+	local osname = uv.os_uname().sysname
+	local cmd = (osname == "FreeBSD") and { "procstat", "-f", pid } or { "fstat", "-p", pid }
+	for _, l in ipairs(fn.systemlist(cmd)) do
+		local dir = l:match("%s+cwd%s+(%S+)")
+		if dir and is_dir(dir) then
+			return dir
+		end
+	end
+end
+
+-- Get the terminal's current working directory.
 local function get_terminal_cwd()
 	if vim.bo.buftype ~= "terminal" then
 		return nil
 	end
-
 	local job_id = vim.b.terminal_job_id
 	if not job_id then
 		return nil
 	end
-
-	local pid = vim.fn.jobpid(job_id)
-	if not pid then
+	local pid = fn.jobpid(job_id)
+	if not pid or pid == 0 then
 		return nil
 	end
 
-	-- Check for Linux (or WSL/Cygwin) using /proc filesystem.
-	if vim.fn.isdirectory("/proc/") == 1 then
-		local cwd = vim.fn.resolve("/proc/" .. pid .. "/cwd")
-		if cwd and vim.fn.isdirectory(cwd) == 1 then
-			return cwd
-		end
-	end
-
-	-- Fallback: use lsof (covers macOS and some BSD systems).
-	local lsof = io.popen("lsof -a -d cwd -p " .. pid .. " -Fn 2>/dev/null")
-	if lsof then
-		local result = lsof:read("*a")
-		lsof:close()
-		local cwd = result:match("^n(.+)")
-		if cwd and vim.fn.isdirectory(cwd) == 1 then
-			return cwd
-		end
-	end
-
-	-- For BSD variants (if lsof fails): use procstat (FreeBSD) or fstat (others).
-	if vim.fn.has("bsd") == 1 then
-		local uv = vim.uv or vim.loop
-		local osname = uv.os_uname().sysname
-		local cmd = (osname == "FreeBSD") and ("procstat -f " .. pid .. " | awk '$5 == \"cwd\" {print $NF}'")
-			or ("fstat -p " .. pid .. " | awk '$6 == \"cwd\" {print $NF}'")
-		local handle = io.popen(cmd)
-		if handle then
-			local result = handle:read("*a")
-			handle:close()
-			local cwd = result:gsub("%s+$", "")
-			if cwd and vim.fn.isdirectory(cwd) == 1 then
-				return cwd
-			end
-		end
-	end
-
-	-- Couldn't resolve terminal cwd.
-	return nil
+	return try_proc(pid) or try_lsof(pid) or try_bsd(pid) -- returns nil if none worked
 end
 
 function M.resolve_file(file)
 	if file:sub(1, 1) == "~" then
-		return vim.fn.expand(file)
+		return fn.expand(file)
 	elseif file:sub(1, 1) == "/" or file:sub(2, 2) == ":" then
 		return file
 	end
@@ -70,10 +71,10 @@ function M.resolve_file(file)
 	if vim.bo.buftype == "terminal" then
 		current_dir = get_terminal_cwd()
 	else
-		current_dir = vim.fn.expand("%:p:h")
+		current_dir = fn.expand("%:p:h")
 	end
 	if not current_dir or current_dir == "" then
-		current_dir = vim.fn.getcwd()
+		current_dir = fn.getcwd()
 	end
 	return current_dir .. "/" .. file
 end
@@ -82,12 +83,12 @@ function M.is_valid_file(filename)
 	if not filename or filename == "" then
 		return false
 	end
-	local stat = vim.uv.fs_stat(filename)
+	local stat = uv.fs_stat(filename)
 	return (stat and stat.type == "file") or false
 end
 
 function M.get_combined_suffixes()
-	local bufnr = vim.api.nvim_get_current_buf()
+	local bufnr = api.nvim_get_current_buf()
 	if config.suffix_cache[bufnr] then
 		return config.suffix_cache[bufnr]
 	end
@@ -123,37 +124,48 @@ function M.get_combined_suffixes()
 	return unique_exts
 end
 
---- Returns a merged 'logical' line from physical lines in a terminal buffer.
---- For non-terminal buffers it returns the current line unmodified.
+--- For terminal buffers, return a merged logical line from hard-wrapped physical lines.
+--- Else, return the current line unmodified (assumes soft-wrapping).
 function M.get_merged_line(start_lnum, end_lnum, buf_nr, win_id)
-	buf_nr = buf_nr or vim.api.nvim_get_current_buf()
-	win_id = win_id or vim.api.nvim_get_current_win()
+	buf_nr = buf_nr or api.nvim_get_current_buf()
+	win_id = win_id or api.nvim_get_current_win()
 
+	-- Non-terminal: single-line fast path.
 	if vim.bo[buf_nr].buftype ~= "terminal" then
-		local text = vim.api.nvim_buf_get_lines(buf_nr, start_lnum - 1, start_lnum, false)[1] or ""
+		local lines = api.nvim_buf_get_lines(buf_nr, start_lnum - 1, start_lnum, false)
+		local text = lines[1] or ""
 		return text, start_lnum, { { lnum = start_lnum, start_pos = 1, length = #text } }
 	end
 
-	local merged = ""
+	-- Terminal: batch-fetch all lines at once.
+	local screen_width = api.nvim_win_get_width(win_id)
+	local raw_lines = api.nvim_buf_get_lines(buf_nr, start_lnum - 1, end_lnum, false)
+
+	local parts = {}
 	local physical_lines = {}
-	local lnum = start_lnum
-	local screen_width = vim.api.nvim_win_get_width(win_id)
-
 	local pos = 1
+	local lnum = start_lnum
 
-	while lnum <= end_lnum do
-		local line = vim.api.nvim_buf_get_lines(buf_nr, lnum - 1, lnum, false)[1] or ""
-		local line_length = #line
-		merged = merged .. line
-		table.insert(physical_lines, { lnum = lnum, start_pos = pos, length = line_length })
-		pos = pos + line_length
-		if line_length < screen_width then
+	for _, line in ipairs(raw_lines) do
+		local len = #line
+		parts[#parts + 1] = line
+		physical_lines[#physical_lines + 1] = {
+			lnum = lnum,
+			start_pos = pos,
+			length = len,
+		}
+
+		pos = pos + len
+		lnum = lnum + 1
+
+		-- Stop as soon as the visual line isn't wrapping.
+		if len < screen_width then
 			break
 		end
-		lnum = lnum + 1
 	end
 
-	return merged, lnum, physical_lines
+	local merged = table.concat(parts)
+	return merged, lnum - 1, physical_lines
 end
 
 return M

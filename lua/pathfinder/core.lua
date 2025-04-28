@@ -2,6 +2,7 @@ local M = {}
 
 local vim = vim
 local api = vim.api
+local fn = vim.fn
 
 local candidates = require("pathfinder.candidates")
 local config = require("pathfinder.config")
@@ -29,7 +30,7 @@ local function try_open_file(valid_cand, is_gF, linenr)
 		for _, t in ipairs(api.nvim_list_tabpages()) do
 			for _, w in ipairs(api.nvim_tabpage_list_wins(t)) do
 				local buf = api.nvim_win_get_buf(w)
-				if vim.fn.fnamemodify(api.nvim_buf_get_name(buf), ":p") == open_path then
+				if fn.fnamemodify(api.nvim_buf_get_name(buf), ":p") == open_path then
 					api.nvim_set_current_tabpage(t)
 					api.nvim_set_current_win(w)
 					if line_arg then
@@ -42,7 +43,7 @@ local function try_open_file(valid_cand, is_gF, linenr)
 	end
 
 	local cmd = config.config.open_mode
-	local file_with_path = vim.fn.fnameescape(open_path)
+	local file_with_path = fn.fnameescape(open_path)
 	if type(cmd) == "function" then
 		cmd(file_with_path, line_arg)
 	else
@@ -65,11 +66,8 @@ local function select_file(is_gF)
 
 		local buf = api.nvim_win_get_buf(win)
 		local cfg = config.get_config_for_buffer(buf)
-		local s, e
-		api.nvim_win_call(win, function()
-			s = vim.fn.line("w0")
-			e = vim.fn.line("w$")
-		end)
+		local s = fn.line("w0", win)
+		local e = fn.line("w$", win)
 
 		local scan_fn = function(line_text, lnum, physical_lines)
 			return candidates.scan_line(line_text, lnum, 1, cfg.scan_unenclosed_words, physical_lines, cfg)
@@ -137,7 +135,7 @@ end
 
 -- Processes files under the cursor, regardless of if unenclosed or not.
 local function process_cursor_file(is_gF, linenr)
-	local cword = vim.fn.expand("<cWORD>")
+	local cword = fn.expand("<cWORD>")
 	local filename, parsed_ln = candidates.parse_filename_and_linenr(cword)
 	local line_to_use = parsed_ln or linenr
 
@@ -154,11 +152,12 @@ local function custom_gf(is_gF, count)
 	local nextfile = config.config.gF_count_behaviour == "nextfile"
 	local idx = (nextfile and is_gF) and 1 or ((count == 0) and 1 or count)
 
-	local curln = vim.fn.line(".")
-	local ccol = vim.fn.col(".") - 1
-	local end_ln = vim.fn.line("$")
 	local buf = api.nvim_get_current_buf()
 	local win = api.nvim_get_current_win()
+	local cursor_pos = api.nvim_win_get_cursor(0)
+	local curln = cursor_pos[1] -- vim.fn.line(".")
+	local ccol = cursor_pos[2] -- vim.fn.col(".") - 1
+	local end_ln = api.nvim_buf_line_count(buf) -- vim.fn.line("$")
 
 	if not config.config.scan_unenclosed_words then
 		if (is_gF or (not is_gF and count == 0)) and process_cursor_file(is_gF, count) then
@@ -193,7 +192,7 @@ local function custom_gf(is_gF, count)
 		end
 		raw = fwd
 	elseif not is_gF and count > 1 then
-		local cf = vim.fn.expand("<cfile>")
+		local cf = fn.expand("<cfile>")
 		local res = utils.resolve_file(cf)
 		if utils.is_valid_file(res) then
 			table.insert(raw, 1, {
@@ -224,18 +223,20 @@ local function custom_gf(is_gF, count)
 	end)
 end
 
--- Jump to the count'th valid file target.
+--- Jump to the count'th valid file target.
 -- Direction: 1 -> next; -1 -> previous.
 local function jump_file(direction, count)
 	count = count or (vim.v.count ~= 0 and vim.v.count or 1)
 
-	local buf, win = api.nvim_get_current_buf(), api.nvim_get_current_win()
-	local curln = vim.fn.line(".")
-	local ccol = vim.fn.col(".")
+	local buf = api.nvim_get_current_buf()
+	local win = api.nvim_get_current_win()
+	local cursor_pos = api.nvim_win_get_cursor(0)
+	local curln = cursor_pos[1] -- vim.fn.line(".")
+	local ccol = cursor_pos[2] + 1 -- vim.fn.col(".")
 
 	-- Scan range: current line to top of document or current line to bottom of document
 	local start_ln = (direction == 1) and curln or 1
-	local end_ln = (direction == 1) and vim.fn.line("$") or curln
+	local end_ln = (direction == 1) and api.nvim_buf_line_count(buf) or curln
 
 	-- Collect and deduplicate raw candidates.
 	local raw = candidates.collect_candidates_in_range(
