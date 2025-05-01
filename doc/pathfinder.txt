@@ -1,4 +1,4 @@
-*pathfinder.txt*		    Enhanced file and URL searching for Neovim
+*pathfinder.txt*		       Enhanced file and URL search for Neovim
 						    Last change: 2025 April 28
 								  *pathfinder*
 ==============================================================================
@@ -39,19 +39,19 @@ It enhances file/URL resolution with:
   - Optional user selection for ambiguous file names.
   - Support for GitHub-style username/repo links.
   - Configurable multi-character enclosure pairs.
-  - Configurable file opening modes (e.g. edit, split, or even a function).
+  - Configurable file opening modes (e.g. edit, split, or a custom function).
   - `Filetype`-specific overrides for all config options.
   - Future extensibility for use with external programs.
   - Retains compatibility with (almost) all standard `gf`, `gF`, and `gx` behaviour.
 
 By default, this plugin remaps `gf`, `gF`, and `gx` to provide these enhancements,
-although this can be disabled and custom keymaps used.
+although this can be disabled in favour of custom keymaps.
 
 The functions |select_file()|, |select_file_line()|, and |select_url()| are
 also provided, mapped to `<leader>gf`, `<leader>gF`, and `<leader>gx` by
 default. Inspired by other plugins, namely `EasyMotion`, these functions
 display all file-and-line or URL/repo targets in the current visible window
-area, allowing the user to open any in as few keystrokes as possible.
+area, allowing the user to open any target in as few keystrokes as possible.
 
 See the Neovim |gf|, |gF|, and |gx| documentation for more complete usage
 including variables. Where usage differs from this is noted herein.
@@ -82,9 +82,9 @@ Examples:
 
 If multiple files exist with the same name but different extension (where the
 extension is not specified explicitly), a prompt will ask which to open. This
-behaviour can be toggled by |offer_multiple_options|, with the first file found
-found with a matching extension in |associated_filetypes| of 'suffixesadd' being
-selected automatically if this is false.
+behaviour can be toggled by |offer_multiple_options|, with the first file
+found with a matching extension in |associated_filetypes| or 'suffixesadd'
+being selected automatically if this is false.
 
 Like `[count]gf`, `[count]gx` will open the count'th valid URL or repository
 (specified by |url_providers|) at or after the cursor. Like `gx`
@@ -192,9 +192,7 @@ Default: `true` (boolean)
 open_mode ~
 Default: `"edit"` (string|function)
 
-    Determines how Pathfinder opens files.
-
-    This setting accepts two types:
+    Determines how Pathfinder opens files:
 
       - `String`: any Ex‑command that opens a file, e.g. `"edit"`, `"vsplit"`.
         Pathfinder will run:  
@@ -202,8 +200,8 @@ Default: `"edit"` (string|function)
 
       - `Function` (filepath: string, linenr?: integer): receives the escaped
 	absolute path and an optional line number (nil if not supplied). You
-	may this to implement custom opening logic (notifications, external
-	tools, etc).
+	may use this to implement custom opening logic (notifications,
+	external tools, etc).
 
 					    *pathfinder-reuse_existing_window*
 reuse_existing_window ~
@@ -240,12 +238,12 @@ Default: `{}` (string[])
 
     An ordered list of file extensions to try for file candidates without a
     specified extension. This takes precedence over 'suffixesadd', which is
-    also used. If |offer_multiple_options| is `false`, the first valid
-    extension found in this list, or if this fails, then the first valid
-    extension found in 'suffixesadd', will be opened automatically. There is
-    typically no reason to prefer this over per-filetype 'suffixesadd' (which
-    is the preferred vim way), however this setting exists to avoid
-    interfering with other plugins which may set 'suffixesadd' directly.
+    also used. If |offer_multiple_options| is `false`, then the first valid
+    extension found in this list or 'suffixesadd', will be opened
+    automatically. There is typically no reason to prefer this over
+    per-filetype 'suffixesadd' (which is the preferred vim way), however this
+    setting exists to avoid interfering with other plugins which may set
+    'suffixesadd' directly.
 
 						  *pathfinder-enclosure_pairs*
 enclosure_pairs ~
@@ -329,7 +327,7 @@ Default: `true` (boolean)
 
     If multiple files are found with the same name but different extensions, a
     prompt will ask which to open. If this is `false`, the first file found with
-    a matching extension in |associated_filetypes| of 'suffixesadd' will be
+    a matching extension in |associated_filetypes| or 'suffixesadd' will be
     opened automatically.
 
 					    *pathfinder-pick_from_all_windows*
@@ -344,7 +342,7 @@ selection_keys ~
 Default: `{ "a", "s", "d", "f", "j", "k", "l" }` (string[])
 
     Keys used for user input when |select_file| is called. Useful for users
-    of non-qwerty layouts.
+    of non-QWERTY layouts.
 
 ==============================================================================
 					     *pathfinder-navigation-functions*
@@ -395,9 +393,6 @@ Function-specific options are |reuse_existing_window|,
 The colour scheme used by this function is configurable via highlight groups.
 See |pathfinder-highlight-groups|.
 
-Note that |offer_multiple_options| isn't currently implemented with this
-function.
-
 						 *pathfinder-select_file_line*
 select_file_line() ~
 Similar to `select_file()`, but also displays and navigates to associated line
@@ -414,8 +409,9 @@ and |selection_keys|.
 
 						*pathfinder-hover_description*
 hover_description() ~
-Tries to retrieve a description from the HTML header of the `<cfile>` under the
-cursor. This function has no default key mapping, but can be set with, e.g:
+Tries to retrieve a description from the HTML header of the '|<cfile>|' under
+the cursor. This function has no default key mapping, but can be set with,
+e.g:
 >lua
  vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description, {
      desc = "Pathfinder: Hover",
