@@ -78,47 +78,40 @@ if ensure_neovim_version() then
 	M.select_url = url.select_url
 	M.hover_description = hover.hover_description
 
+	local function setup_keymaps()
+		local bufnr = vim.api.nvim_get_current_buf()
+		if not config.config.remap_default_keys then
+			return
+		end
+
+		local map = function(lhs, rhs, desc)
+			vim.keymap.set("n", lhs, rhs, { silent = true, buffer = bufnr, desc = desc })
+		end
+
+		map("gf", M.gf, "Enhanced go to file")
+		map("gF", M.gF, "Enhanced go to file (line)")
+		map("gx", M.gx, "Open URL/Git repository")
+		map("]f", M.next_file, "Jump to next valid file name")
+		map("[f", M.prev_file, "Jump to previous valid file name")
+		map("]u", M.next_url, "Jump to next valid URL")
+		map("[u", M.prev_url, "Jump to previous valid URL")
+		map("<leader>gf", M.select_file, "Visual file selection")
+		map("<leader>gF", M.select_file_line, "Visual file selection (line)")
+		map("<leader>gx", M.select_url, "Visual URL/Git repository selection")
+	end
+
 	local function setup_autocommands()
 		vim.api.nvim_create_autocmd({ "FileType", "BufEnter", "VimEnter" }, {
 			pattern = "*",
-			callback = config.update_config_for_buffer,
+			callback = function()
+				config.update_config_for_buffer()
+				setup_keymaps()
+			end,
 		})
-	end
-
-    --stylua: ignore
-	local function setup_keymaps()
-		if config.config.remap_default_keys then
-			vim.keymap.set("n", "gf", M.gf, { silent = true, desc = "Enhanced go to file" })
-			vim.keymap.set("n", "gF", M.gF, { silent = true, desc = "Enhanced go to file (line)" })
-            vim.keymap.set("n", "gx", M.gx, { silent = true, desc = "Open URL/Git repository" })
-			vim.keymap.set("n", "]f", M.next_file, { silent = true, desc = "Jump to next valid file name" })
-			vim.keymap.set("n", "[f", M.prev_file, { silent = true, desc = "Jump to previous valid file name" })
-			vim.keymap.set("n", "]u", M.next_url, { silent = true, desc = "Jump to next valid URL" })
-			vim.keymap.set("n", "[u", M.prev_url, { silent = true, desc = "Jump to previous valid URL" })
-			vim.keymap.set(
-                "n",
-                "<leader>gf",
-                M.select_file,
-                { silent = true, desc = "Visual file selection" }
-            )
-			vim.keymap.set(
-				"n",
-				"<leader>gF",
-				M.select_file_line,
-				{ silent = true, desc = "Visual file selection (line)" }
-			)
-			vim.keymap.set(
-                "n",
-                "<leader>gx",
-                M.select_url,
-                { silent = true, desc = "Visual URL/Git repository selection" }
-            )
-		end
 	end
 
 	load_filetype_handlers()
 	setup_autocommands()
-	setup_keymaps()
 else
 	local function nop() end
 	M.setup = nop
