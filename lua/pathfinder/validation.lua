@@ -3,7 +3,7 @@ local M = {}
 local vim = vim
 local fn = vim.fn
 
-local config = require("pathfinder.config").config
+local config = require("pathfinder.config")
 local utils = require("pathfinder.utils")
 
 -- Checks if the resolved candidate file exists. If not, appends each extension
@@ -27,7 +27,7 @@ function M.validate_candidate(candidate, callback, auto_select)
 		if utils.is_valid_file(normalized_file_path) and not seen[normalized_file_path] then
 			table.insert(valid_candidates, normalized_file_path)
 			seen[normalized_file_path] = true
-			return not (config.offer_multiple_options or auto_select)
+			return not (config.config.offer_multiple_options or auto_select)
 		end
 		return false
 	end
@@ -91,7 +91,7 @@ function M.validate_candidate(candidate, callback, auto_select)
 		callback("")
 	elseif #valid_candidates == 1 or auto_select then
 		callback(valid_candidates[1])
-	elseif config.offer_multiple_options then
+	elseif config.config.offer_multiple_options then
 		local ok, _ = pcall(function()
 			-- Wrap to avoid some plugins that overwrite vim.ui.select, e.g.
 			-- telescope, not gaining focus.

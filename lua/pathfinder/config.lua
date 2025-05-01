@@ -2,7 +2,7 @@ local M = {}
 
 local vim = vim
 
-M.default_config = {
+local default_config = {
 	-- Search behaviour:
 	forward_limit = -1,
 	scan_unenclosed_words = true,
@@ -31,13 +31,13 @@ M.default_config = {
 
 	-- User interaction:
 	remap_default_keys = true,
-	offer_multiple_options = true,
+	offer_multiple_options = false,
 	pick_from_all_windows = true,
 	selection_keys = { "a", "s", "d", "f", "j", "k", "l" },
 }
 
 -- Active configuration for the current buffer. This will be modified by filetype overrides.
-M.config = vim.deepcopy(M.default_config)
+M.config = vim.deepcopy(default_config)
 
 -- Suffix cache for each buffer (used to avoid recomputing extension lists).
 M.suffix_cache = {}
@@ -58,8 +58,8 @@ end
 
 -- Returns the configuration for the specified buffer based on its filetype.
 function M.get_config_for_buffer(bufnr)
-	local current_config = vim.deepcopy(M.default_config)
-	current_config.ft_overrides = M.default_config.ft_overrides or {}
+	local current_config = vim.deepcopy(default_config)
+	current_config.ft_overrides = default_config.ft_overrides or {}
 
 	local ft = vim.bo[bufnr].filetype
 	if ft and ft ~= "" then
@@ -72,7 +72,7 @@ function M.get_config_for_buffer(bufnr)
 		end
 
 		-- Apply user ft_overrides (overwrite defaults and ft module settings).
-		local user_override_for_ft = M.default_config.ft_overrides[ft]
+		local user_override_for_ft = default_config.ft_overrides[ft]
 		if user_override_for_ft then
 			for key, value in pairs(user_override_for_ft) do
 				current_config[key] = vim.deepcopy(value)
@@ -88,8 +88,8 @@ end
 -- and ft_overrides (in reverse order of precedence) for the current buffer.
 function M.update_config_for_buffer()
 	local bufnr = vim.api.nvim_get_current_buf()
-	local current_config = vim.deepcopy(M.default_config)
-	current_config.ft_overrides = M.default_config.ft_overrides or {}
+	local current_config = vim.deepcopy(default_config)
+	current_config.ft_overrides = default_config.ft_overrides or {}
 
 	local ft = vim.bo[bufnr].filetype
 	if ft and ft ~= "" then
@@ -102,7 +102,7 @@ function M.update_config_for_buffer()
 		end
 
 		-- Apply user ft_overrides (overwrite defaults and ft module settings).
-		local user_override_for_ft = M.default_config.ft_overrides[ft]
+		local user_override_for_ft = default_config.ft_overrides[ft]
 		if user_override_for_ft then
 			for key, value in pairs(user_override_for_ft) do
 				current_config[key] = vim.deepcopy(value)
@@ -116,7 +116,6 @@ function M.update_config_for_buffer()
 	local includeexpr_target = M.config.includeexpr
 	if includeexpr_target and includeexpr_target ~= "" then
 		vim.api.nvim_set_option_value("includeexpr", includeexpr_target, { scope = "local", buf = bufnr })
-	else
 	end
 
 	update_cached_openings(M.config) -- update derived/cached values
@@ -128,11 +127,11 @@ function M.setup(user_config)
 	user_config = user_config or {}
 
 	if user_config.ft_overrides then
-		M.default_config.ft_overrides = user_config.ft_overrides
+		default_config.ft_overrides = user_config.ft_overrides
 		user_config.ft_overrides = nil
 	end
 
-	M.default_config = vim.tbl_deep_extend("force", M.default_config, user_config)
+	default_config = vim.tbl_deep_extend("force", default_config, user_config)
 
 	M.update_config_for_buffer()
 end

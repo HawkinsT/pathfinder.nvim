@@ -66,24 +66,28 @@ if ensure_neovim_version() then
 	local url = require("pathfinder.url")
 
 	M.setup = config.setup
+
 	M.gf = core.gf
 	M.gF = core.gF
 	M.gx = url.gx
+
 	M.next_file = core.next_file
 	M.prev_file = core.prev_file
 	M.next_url = url.next_url
 	M.prev_url = url.prev_url
+
 	M.select_file = core.select_file
 	M.select_file_line = core.select_file_line
 	M.select_url = url.select_url
+
 	M.hover_description = hover.hover_description
 
 	local function setup_keymaps()
-		local bufnr = vim.api.nvim_get_current_buf()
 		if not config.config.remap_default_keys then
 			return
 		end
 
+		local bufnr = vim.api.nvim_get_current_buf()
 		local map = function(lhs, rhs, desc)
 			vim.keymap.set("n", lhs, rhs, { silent = true, buffer = bufnr, desc = desc })
 		end

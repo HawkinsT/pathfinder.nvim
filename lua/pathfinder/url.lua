@@ -4,7 +4,7 @@ local vim = vim
 local api = vim.api
 local fn = vim.fn
 
-local config = require("pathfinder.config").config
+local config = require("pathfinder.config")
 local candidates = require("pathfinder.candidates")
 local picker = require("pathfinder.picker")
 local visual_select = require("pathfinder.visual_select")
@@ -70,7 +70,7 @@ local function validate_candidate(cand, callback)
 		check_url_exists(cand.url, callback)
 	-- For repos, try each provider sequentially until one resolves.
 	elseif M.is_valid.repo(cand.url) then
-		local provs = config.url_providers or {}
+		local provs = config.config.url_providers or {}
 		if #provs == 0 then
 			vim.schedule(function()
 				callback(false)
@@ -136,7 +136,7 @@ local function open_candidate_url(candidate)
 			vim.notify("URL not accessible: " .. candidate, vim.log.levels.ERROR)
 		end)
 	elseif M.is_valid.repo(candidate) then
-		local provs = config.url_providers or {}
+		local provs = config.config.url_providers or {}
 		if #provs == 0 then
 			return vim.notify("No URL providers configured.", vim.log.levels.ERROR)
 		end
@@ -157,23 +157,22 @@ function M.scan_line_for_urls(line_text, lnum, physical_lines)
 	line_text = line_text:gsub(esc .. "%[[%d;]*[ -/]*[@-~]", "")
 
 	--  Use url_enclosure_pairs over enclosure_pairs if available.
-	local scan_cfg
-	if config.url_enclosure_pairs then
-		scan_cfg = vim.tbl_extend("force", {}, config, {
-			enclosure_pairs = config.url_enclosure_pairs,
-		})
+	local scan_cfg = config.config
+	if config.config.url_enclosure_pairs then
+		-- Deep‐clone every config field.
+		scan_cfg = vim.deepcopy(config.config)
+		-- Then override enclosure pairs.
+		scan_cfg.enclosure_pairs = config.config.url_enclosure_pairs
 
-		-- Rebuild cache, replacing enclosure_pairs with url_enclosure_pairs.
+		-- Rebuild delimiter cache so only URL pairs are used.
 		local openings = {}
-		for open_delim, _ in pairs(scan_cfg.enclosure_pairs) do
-			table.insert(openings, open_delim)
+		for o, _ in pairs(scan_cfg.enclosure_pairs) do
+			table.insert(openings, o)
 		end
 		table.sort(openings, function(a, b)
 			return #a > #b
 		end)
 		scan_cfg._cached_openings = openings
-	else
-		scan_cfg = config
 	end
 
 	local raw = candidates.scan_line(
@@ -204,7 +203,7 @@ function M.scan_line_for_urls(line_text, lnum, physical_lines)
 end
 
 function M.select_url()
-	local selection_keys = config.selection_keys
+	local selection_keys = config.config.selection_keys
 	local all = {}
 
 	for _, win in ipairs(visual_select.get_windows_to_check()) do
@@ -242,7 +241,7 @@ end
 
 -- Return the {first, last} line to scan.
 local function get_scan_range(buf, direction, use_limit)
-	local lim = config.forward_limit
+	local lim = config.config.forward_limit
 	local cur_line = api.nvim_win_get_cursor(0)[1]
 	local max_line = api.nvim_buf_line_count(buf)
 	if direction == 1 then
@@ -362,13 +361,13 @@ end
 function M.next_url(count)
 	jump_url(1, false, function(c)
 		api.nvim_win_set_cursor(0, { c.lnum, c.start_col - 1 })
-	end, count, config.validate_urls)
+	end, count, config.config.validate_urls)
 end
 
 function M.prev_url(count)
 	jump_url(-1, false, function(c)
 		api.nvim_win_set_cursor(0, { c.lnum, c.start_col - 1 })
-	end, count, config.validate_urls)
+	end, count, config.config.validate_urls)
 end
 
 return M
