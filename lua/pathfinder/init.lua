@@ -2,7 +2,7 @@ local M = {}
 
 local vim = vim
 
-M.version = "0.7.1"
+M.version = "0.7.2"
 
 local required_nvim_version = { major = 0, minor = 10, patch = 0 }
 
