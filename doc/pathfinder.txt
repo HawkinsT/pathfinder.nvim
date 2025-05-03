@@ -1,5 +1,5 @@
 *pathfinder.txt*		       Enhanced file and URL search for Neovim
-						    Last change: 2025 April 28
+						       Last change: 2025 May 3
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
@@ -171,9 +171,12 @@ Default: `-1` (integer)
 
     This specifies the maximum number of lines to search beyond the current
     line (inclusive). If set to `-1`, then the search will only take place
-    throughout the currently visible buffer area. Set to `1` to only search
-    ahead of the cursor on the current cursor line, best approximating default
-    `gf` and `gF` behaviour.
+    throughout the currently visible window area. Set it to `0` to search
+    until the end of the buffer, or to `1` to only search ahead of the cursor
+    on the current line, best approximating default `gf` and `gF` behaviour.
+    Generally, a large limit such as `10000` is recommended instead of
+    searching the entire buffer, as this can take an unacceptably long time to
+    complete for very large files with no nearby file or URL targets.
 
 					    *pathfinder-scan_unenclosed_words*
 scan_unenclosed_words ~
