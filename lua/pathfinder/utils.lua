@@ -23,7 +23,11 @@ end
 
 -- CWD check for macOS and some BSD systems using lsof.
 local function try_lsof(pid)
-	local lines = fn.systemlist({ "lsof", "-a", "-d", "cwd", "-p", pid, "-Fn" })
+	local ok, lines =
+		pcall(fn.systemlist, { "lsof", "-a", "-d", "cwd", "-p", pid, "-Fn" })
+	if not ok or type(lines) ~= table then
+		return nil
+	end
 	for _, l in ipairs(lines) do
 		local dir = l:match("^n(.+)")
 		if dir and is_dir(dir) then
@@ -35,8 +39,14 @@ end
 -- CWD check for BSD variants (if lsof fails): use procstat (FreeBSD) or fstat (others).
 local function try_bsd(pid)
 	local osname = uv.os_uname().sysname
-	local cmd = (osname == "FreeBSD") and { "procstat", "-f", pid } or { "fstat", "-p", pid }
-	for _, l in ipairs(fn.systemlist(cmd)) do
+	local cmd = (osname == "FreeBSD") and { "procstat", "-f", pid }
+		or { "fstat", "-p", pid }
+
+	local ok, lines = pcall(fn.systemlist, cmd)
+	if not ok or type(lines) ~= "table" then
+		return nil
+	end
+	for _, l in ipairs(lines) do
 		local dir = l:match("%s+cwd%s+(%S+)")
 		if dir and is_dir(dir) then
 			return dir
