@@ -50,7 +50,7 @@ local function try_open_file(valid_cand, is_gF, linenr)
 		if line_arg then
 			cmd = cmd .. "+" .. line_arg .. " "
 		end
-		vim.cmd(cmd .. file_with_path)
+		vim.cmd(cmd .. " " .. file_with_path)
 	end
 
 	return true
