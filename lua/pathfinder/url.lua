@@ -202,10 +202,31 @@ function M.scan_line_for_urls(line_text, lnum, physical_lines)
 	return unique
 end
 
+-- Asynchronously filter list of candidates using validate_candidate.
+local function filter_valid_candidates(cands, on_done)
+	local pending = #cands
+	local valids = {}
+	if pending == 0 then
+		return on_done(valids)
+	end
+	for _, cand in ipairs(cands) do
+		validate_candidate(cand, function(ok)
+			if ok then
+				table.insert(valids, cand)
+			end
+			pending = pending - 1
+			if pending == 0 then
+				on_done(valids)
+			end
+		end)
+	end
+end
+
 function M.select_url()
 	local selection_keys = config.config.selection_keys
 	local all = {}
 
+	-- Collect URL candidates.
 	for _, win in ipairs(visual_select.get_windows_to_check()) do
 		if api.nvim_win_is_valid(win) then
 			local buf = api.nvim_win_get_buf(win)
@@ -227,16 +248,43 @@ function M.select_url()
 	all = candidates.deduplicate_candidates(all)
 
 	if #all == 0 then
-		vim.notify("No URL candidates found", vim.log.levels.INFO)
+		vim.notify(
+			"No URL candidates found",
+			vim.log.levels.INFO,
+			{ title = "pathfinder.nvim" }
+		)
 		return
 	end
 
-	visual_select.assign_labels(all, selection_keys)
-	local req = #all[1].label
+	-- Show the picker once we have a final list.
+	local function launch(cands)
+		if #cands == 0 then
+			vim.notify(
+				"No valid URL candidates found",
+				vim.log.levels.INFO,
+				{ title = "pathfinder.nvim" }
+			)
+			return
+		end
 
-	visual_select.start_selection_loop(all, highlight_ns, dim_ns, visual_select.highlight_candidate, function(sel)
-		open_candidate_url(sel.url)
-	end, req)
+		visual_select.assign_labels(cands, selection_keys)
+		visual_select.start_selection_loop(
+			cands,
+			highlight_ns,
+			dim_ns,
+			visual_select.highlight_candidate,
+			function(sel)
+				open_candidate_url(sel.url)
+			end,
+			#cands[1].label
+		)
+	end
+
+	if config.config.validate_urls then
+		filter_valid_candidates(all, launch)
+	else
+		launch(all)
+	end
 end
 
 -- Return the {first, last} line to scan.
