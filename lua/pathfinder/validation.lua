@@ -24,7 +24,10 @@ function M.validate_candidate(candidate, callback, auto_select)
 
 	local function check_candidate(path)
 		local normalized_file_path = fn.fnamemodify(path, ":p")
-		if utils.is_valid_file(normalized_file_path) and not seen[normalized_file_path] then
+		if
+			utils.is_valid_file(normalized_file_path)
+			and not seen[normalized_file_path]
+		then
 			table.insert(valid_candidates, normalized_file_path)
 			seen[normalized_file_path] = true
 			return not (config.config.offer_multiple_options or auto_select)
@@ -47,7 +50,10 @@ function M.validate_candidate(candidate, callback, auto_select)
 	-- Also check the path.
 	local path_files = fn.globpath(buf_path, candidate, false, true)
 	for _, ext in ipairs(unique_exts) do
-		vim.list_extend(path_files, fn.globpath(buf_path, candidate .. ext, false, true))
+		vim.list_extend(
+			path_files,
+			fn.globpath(buf_path, candidate .. ext, false, true)
+		)
 	end
 	for _, file in ipairs(path_files) do
 		if check_candidate(file) then
@@ -58,7 +64,8 @@ function M.validate_candidate(candidate, callback, auto_select)
 
 	-- Also try this again with includeexpr, if set.
 	if includeexpr and includeexpr ~= "" then
-		local expr_with_candidate = includeexpr:gsub("v:fname", vim.inspect(candidate))
+		local expr_with_candidate =
+			includeexpr:gsub("v:fname", vim.inspect(candidate))
 		local transformed = fn.eval(expr_with_candidate)
 		if transformed and transformed ~= candidate then
 			local resolved_transformed = utils.resolve_file(transformed)
@@ -73,9 +80,13 @@ function M.validate_candidate(candidate, callback, auto_select)
 				end
 			end
 
-			local path_files_transformed = fn.globpath(buf_path, transformed, false, true)
+			local path_files_transformed =
+				fn.globpath(buf_path, transformed, false, true)
 			for _, ext in ipairs(unique_exts) do
-				vim.list_extend(path_files_transformed, fn.globpath(buf_path, transformed .. ext, false, true))
+				vim.list_extend(
+					path_files_transformed,
+					fn.globpath(buf_path, transformed .. ext, false, true)
+				)
 			end
 			for _, file in ipairs(path_files_transformed) do
 				if check_candidate(file) then
@@ -96,7 +107,9 @@ function M.validate_candidate(candidate, callback, auto_select)
 			-- Wrap to avoid some plugins that overwrite vim.ui.select, e.g.
 			-- telescope, not gaining focus.
 			ui_select(valid_candidates, {
-				prompt = "Multiple targets for " .. candidate .. " (q/Esc=cancel):",
+				prompt = "Multiple targets for "
+					.. candidate
+					.. " (q/Esc=cancel):",
 				format_item = function(item)
 					return item
 				end,

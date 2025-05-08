@@ -134,22 +134,27 @@ function M.get_combined_suffixes()
 	return unique_exts
 end
 
---- For terminal buffers, return a merged logical line from hard-wrapped physical lines.
---- Else, return the current line unmodified (assumes soft-wrapping).
+-- For terminal buffers, return a merged logical line from hard-wrapped
+-- physical lines. Else, return the current line unmodified (assumes
+-- soft-wrapping).
 function M.get_merged_line(start_lnum, end_lnum, buf_nr, win_id)
 	buf_nr = buf_nr or api.nvim_get_current_buf()
 	win_id = win_id or api.nvim_get_current_win()
 
 	-- Non-terminal: single-line fast path.
 	if vim.bo[buf_nr].buftype ~= "terminal" then
-		local lines = api.nvim_buf_get_lines(buf_nr, start_lnum - 1, start_lnum, false)
+		local lines =
+			api.nvim_buf_get_lines(buf_nr, start_lnum - 1, start_lnum, false)
 		local text = lines[1] or ""
-		return text, start_lnum, { { lnum = start_lnum, start_pos = 1, length = #text } }
+		return text,
+			start_lnum,
+			{ { lnum = start_lnum, start_pos = 1, length = #text } }
 	end
 
 	-- Terminal: batch-fetch all lines at once.
 	local screen_width = api.nvim_win_get_width(win_id)
-	local raw_lines = api.nvim_buf_get_lines(buf_nr, start_lnum - 1, end_lnum, false)
+	local raw_lines =
+		api.nvim_buf_get_lines(buf_nr, start_lnum - 1, end_lnum, false)
 
 	local parts = {}
 	local physical_lines = {}

@@ -111,7 +111,10 @@ local function find_next_opening(line, start_pos, openings)
 	for pos = start_pos, #line do
 		for _, opening in ipairs(openings) do
 			local opening_len = #opening
-			if pos + opening_len - 1 <= #line and line:sub(pos, pos + opening_len - 1) == opening then
+			if
+				pos + opening_len - 1 <= #line
+				and line:sub(pos, pos + opening_len - 1) == opening
+			then
 				return pos, opening
 			end
 		end
@@ -132,7 +135,9 @@ end
 function M.calculate_spans(start, finish, physical_lines, lnum)
 	if not physical_lines then
 		-- Fallback for non-terminal buffers or missing physical_lines to single span.
-		return { { lnum = lnum, start_col = start - 1, finish_col = finish - 1 } }
+		return {
+			{ lnum = lnum, start_col = start - 1, finish_col = finish - 1 },
+		}
 	end
 	local spans = {}
 	for _, pl in ipairs(physical_lines) do
@@ -144,7 +149,11 @@ function M.calculate_spans(start, finish, physical_lines, lnum)
 			-- Convert to 0-based columns for Neovim API.
 			local line_start_col = span_start - pl_start
 			local line_finish_col = span_end - pl_start
-			table.insert(spans, { lnum = pl.lnum, start_col = line_start_col, finish_col = line_finish_col })
+			table.insert(spans, {
+				lnum = pl.lnum,
+				start_col = line_start_col,
+				finish_col = line_finish_col,
+			})
 		end
 	end
 	return spans
@@ -152,14 +161,23 @@ end
 
 ---Processes a single potential filename string.
 -- Strips enclosures, calculates positions, parses filename/line, and creates candidate table.
-local function create_candidate_from_piece(piece, lnum, base_col, min_col, escaped_space_count, physical_lines, cfg)
+local function create_candidate_from_piece(
+	piece,
+	lnum,
+	base_col,
+	min_col,
+	escaped_space_count,
+	physical_lines,
+	cfg
+)
 	local piece_leading_ws = piece:match("^(%s*)") or ""
 	local trimmed_piece = vim.trim(piece)
 	if trimmed_piece == "" then
 		return nil
 	end
 
-	local inner_str, removed_start_len = strip_nested_enclosures(trimmed_piece, cfg.enclosure_pairs)
+	local inner_str, removed_start_len =
+		strip_nested_enclosures(trimmed_piece, cfg.enclosure_pairs)
 	local content_start_offset = inner_str:find("%S") or 1
 	local content_end_offset = #inner_str - #((inner_str:match("%s*$")) or "")
 	local filename_str = inner_str:sub(content_start_offset, content_end_offset)
@@ -167,9 +185,14 @@ local function create_candidate_from_piece(piece, lnum, base_col, min_col, escap
 		return nil
 	end
 
-	local cand_start_col = base_col + #piece_leading_ws + removed_start_len + (content_start_offset - 1)
+	local cand_start_col = base_col
+		+ #piece_leading_ws
+		+ removed_start_len
+		+ (content_start_offset - 1)
 	local filename_length = content_end_offset - content_start_offset + 1
-	local cand_finish_col = cand_start_col + filename_length + escaped_space_count
+	local cand_finish_col = cand_start_col
+		+ filename_length
+		+ escaped_space_count
 
 	if not min_col or cand_finish_col >= min_col then
 		local filename, linenr = M.parse_filename_and_linenr(filename_str)
@@ -182,12 +205,25 @@ local function create_candidate_from_piece(piece, lnum, base_col, min_col, escap
 				linenr = linenr,
 				escaped_space_count = escaped_space_count,
 			}
-			candidate.spans = M.calculate_spans(cand_start_col, cand_finish_col - 1, physical_lines, lnum)
+			candidate.spans = M.calculate_spans(
+				cand_start_col,
+				cand_finish_col - 1,
+				physical_lines,
+				lnum
+			)
 			local file_sub_start = filename_str:find(filename, 1, true)
 			if file_sub_start then
 				local file_col_start = cand_start_col + file_sub_start - 1
-				local file_col_end = file_col_start + #filename - 1 + escaped_space_count
-				candidate.target_spans = M.calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
+				local file_col_end = file_col_start
+					+ #filename
+					- 1
+					+ escaped_space_count
+				candidate.target_spans = M.calculate_spans(
+					file_col_start,
+					file_col_end,
+					physical_lines,
+					lnum
+				)
 			end
 			if linenr then
 				local linenr_str = tostring(linenr)
@@ -195,7 +231,12 @@ local function create_candidate_from_piece(piece, lnum, base_col, min_col, escap
 				if ln_sub_start then
 					local ln_col_start = cand_start_col + ln_sub_start - 1
 					local ln_col_end = ln_col_start + #linenr_str - 1
-					candidate.line_nr_spans = M.calculate_spans(ln_col_start, ln_col_end, physical_lines, lnum)
+					candidate.line_nr_spans = M.calculate_spans(
+						ln_col_start,
+						ln_col_end,
+						physical_lines,
+						lnum
+					)
 				end
 			end
 			return candidate
@@ -229,8 +270,15 @@ local function process_candidate_string(
 		found_separator = true
 		local piece = raw_str:sub(match_start, match_end)
 		local piece_start_col = base + (match_start - 1)
-		local candidate =
-			create_candidate_from_piece(piece, lnum, piece_start_col, min_col, escaped_space_count, physical_lines, cfg)
+		local candidate = create_candidate_from_piece(
+			piece,
+			lnum,
+			piece_start_col,
+			min_col,
+			escaped_space_count,
+			physical_lines,
+			cfg
+		)
 		if candidate then
 			table.insert(results, candidate)
 		end
@@ -238,8 +286,15 @@ local function process_candidate_string(
 	end
 
 	if not found_separator and search_pos == 1 then
-		local candidate =
-			create_candidate_from_piece(raw_str, lnum, base, min_col, escaped_space_count, physical_lines, cfg)
+		local candidate = create_candidate_from_piece(
+			raw_str,
+			lnum,
+			base,
+			min_col,
+			escaped_space_count,
+			physical_lines,
+			cfg
+		)
 		if candidate then
 			table.insert(results, candidate)
 		end
@@ -259,7 +314,16 @@ local function process_word_segment(
 	physical_lines,
 	cfg
 )
-	local candidates = process_candidate_string(word_str, lnum, word_start_col, min_col, nil, 0, physical_lines, cfg)
+	local candidates = process_candidate_string(
+		word_str,
+		lnum,
+		word_start_col,
+		min_col,
+		nil,
+		0,
+		physical_lines,
+		cfg
+	)
 	for _, cand in ipairs(candidates) do
 		current_order = current_order + 1
 		cand.order = current_order
@@ -290,7 +354,8 @@ local function parse_words_in_segment(
 	for _, pat in ipairs(patterns) do
 		local search_offset = 1
 		while search_offset <= #segment do
-			local match_s, match_e, filename, linenr_str = segment:find(pat.pattern, search_offset)
+			local match_s, match_e, filename, linenr_str =
+				segment:find(pat.pattern, search_offset)
 			if not match_s then
 				break
 			end
@@ -308,16 +373,31 @@ local function parse_words_in_segment(
 					}
 					local file_sub_start = matched_text:find(filename, 1, true)
 					if file_sub_start then
-						local file_col_start = abs_start_col + file_sub_start - 1
+						local file_col_start = abs_start_col
+							+ file_sub_start
+							- 1
 						local file_col_end = file_col_start + #filename - 1
-						match_item.target_spans = M.calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
+						match_item.target_spans = M.calculate_spans(
+							file_col_start,
+							file_col_end,
+							physical_lines,
+							lnum
+						)
 					end
 					if linenr_str then
-						local ln_sub_start = matched_text:find(linenr_str, 1, true)
+						local ln_sub_start =
+							matched_text:find(linenr_str, 1, true)
 						if ln_sub_start then
-							local ln_col_start = abs_start_col + ln_sub_start - 1
+							local ln_col_start = abs_start_col
+								+ ln_sub_start
+								- 1
 							local ln_col_end = ln_col_start + #linenr_str - 1
-							match_item.line_nr_spans = M.calculate_spans(ln_col_start, ln_col_end, physical_lines, lnum)
+							match_item.line_nr_spans = M.calculate_spans(
+								ln_col_start,
+								ln_col_end,
+								physical_lines,
+								lnum
+							)
 						end
 					end
 					table.insert(structured_matches, match_item)
@@ -342,15 +422,28 @@ local function parse_words_in_segment(
 				end
 				local word_finish_col = math.min(word_e, match.start_col - 1)
 				local word_str = line:sub(word_s, word_finish_col)
-				current_order =
-					process_word_segment(word_str, lnum, word_s, min_col, results, current_order, physical_lines, cfg)
+				current_order = process_word_segment(
+					word_str,
+					lnum,
+					word_s,
+					min_col,
+					results,
+					current_order,
+					physical_lines,
+					cfg
+				)
 				word_search_start = word_finish_col + 1
 			end
 		end
 
 		current_order = current_order + 1
 		match.order = current_order
-		match.spans = M.calculate_spans(match.start_col, match.finish - 1, physical_lines, lnum)
+		match.spans = M.calculate_spans(
+			match.start_col,
+			match.finish - 1,
+			physical_lines,
+			lnum
+		)
 		table.insert(results, match)
 
 		current_parse_pos = match.finish + 1
@@ -364,15 +457,30 @@ local function parse_words_in_segment(
 		end
 		local word_finish_col = math.min(word_e, end_pos)
 		local word_str = line:sub(word_s, word_finish_col)
-		current_order =
-			process_word_segment(word_str, lnum, word_s, min_col, results, current_order, physical_lines, cfg)
+		current_order = process_word_segment(
+			word_str,
+			lnum,
+			word_s,
+			min_col,
+			results,
+			current_order,
+			physical_lines,
+			cfg
+		)
 		word_search_start = word_finish_col + 1
 	end
 
 	return current_order
 end
 
-function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines, cfg)
+function M.scan_line(
+	line,
+	lnum,
+	min_col,
+	scan_unenclosed_words,
+	physical_lines,
+	cfg
+)
 	cfg = cfg or config.config
 	local results = {}
 	local order = 0
@@ -381,7 +489,8 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 	for _, pat in ipairs(patterns) do
 		local search_offset = 1
 		while search_offset <= #line do
-			local match_s, match_e, filename, linenr_str = line:find(pat.pattern, search_offset)
+			local match_s, match_e, filename, linenr_str =
+				line:find(pat.pattern, search_offset)
 			if not match_s then
 				break
 			end
@@ -399,7 +508,12 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 						type = "structured",
 					}
 					-- Calculate spans for the entire match:
-					candidate.spans = M.calculate_spans(abs_start_col, abs_finish_col - 1, physical_lines, lnum)
+					candidate.spans = M.calculate_spans(
+						abs_start_col,
+						abs_finish_col - 1,
+						physical_lines,
+						lnum
+					)
 
 					-- File spans:
 					local matched_text = line:sub(match_s, match_e)
@@ -407,7 +521,12 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 					if file_start then
 						local file_col_start = abs_start_col + file_start - 1
 						local file_col_end = file_col_start + #filename - 1
-						candidate.target_spans = M.calculate_spans(file_col_start, file_col_end, physical_lines, lnum)
+						candidate.target_spans = M.calculate_spans(
+							file_col_start,
+							file_col_end,
+							physical_lines,
+							lnum
+						)
 					end
 
 					-- Line number spans:
@@ -415,7 +534,12 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 					if ln_start then
 						local ln_col_start = abs_start_col + ln_start - 1
 						local ln_col_end = ln_col_start + #linenr_str - 1
-						candidate.line_nr_spans = M.calculate_spans(ln_col_start, ln_col_end, physical_lines, lnum)
+						candidate.line_nr_spans = M.calculate_spans(
+							ln_col_start,
+							ln_col_end,
+							physical_lines,
+							lnum
+						)
 					end
 					table.insert(results, candidate)
 					order = order + 1
@@ -459,7 +583,8 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 				local content_start_pos = open_pos + #opening
 				local close_pos = find_closing(line, content_start_pos, closing)
 				if close_pos then
-					local enclosed_str = line:sub(content_start_pos, close_pos - 1)
+					local enclosed_str =
+						line:sub(content_start_pos, close_pos - 1)
 					local escaped_space_count = 0
 					if enclosed_str:find("\\ ", 1, true) then
 						enclosed_str = enclosed_str:gsub("\\ ", function()
@@ -481,21 +606,37 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 						order = order + 1
 						cand.order = order
 						cand.type = "enclosures"
-						cand.spans = M.calculate_spans(cand.start_col, cand.finish - 1, physical_lines, lnum)
+						cand.spans = M.calculate_spans(
+							cand.start_col,
+							cand.finish - 1,
+							physical_lines,
+							lnum
+						)
 						table.insert(results, cand)
 					end
 
 					-- Handle trailing line numbers.
 					local trailing_text = line:sub(close_pos + #closing)
-					local line_number, consumed = parse_trailing_line_number(trailing_text)
+					local line_number, consumed =
+						parse_trailing_line_number(trailing_text)
 					if line_number then
 						for _, cand in ipairs(candidates_in_enclosure) do
 							cand.linenr = line_number
 							local tmatch_s = trailing_text:find("%d+")
 							if tmatch_s then
-								local abs_ln_start = close_pos + #closing + tmatch_s - 1
-								local abs_ln_end = abs_ln_start + #tostring(line_number) - 1
-								cand.line_nr_spans = M.calculate_spans(abs_ln_start, abs_ln_end, physical_lines, lnum)
+								local abs_ln_start = close_pos
+									+ #closing
+									+ tmatch_s
+									- 1
+								local abs_ln_end = abs_ln_start
+									+ #tostring(line_number)
+									- 1
+								cand.line_nr_spans = M.calculate_spans(
+									abs_ln_start,
+									abs_ln_end,
+									physical_lines,
+									lnum
+								)
 							end
 						end
 						pos = close_pos + #closing + (consumed or 0)
@@ -509,7 +650,17 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 				-- No more opening delimiters found on the rest of the line.
 				-- If scanning unenclosed words, parse the remaining part of the line.
 				if scan_unenclosed_words then
-					order = parse_words_in_segment(line, pos, #line, lnum, min_col, results, order, physical_lines, cfg)
+					order = parse_words_in_segment(
+						line,
+						pos,
+						#line,
+						lnum,
+						min_col,
+						results,
+						order,
+						physical_lines,
+						cfg
+					)
 				end
 				break
 			end
@@ -530,7 +681,15 @@ function M.scan_line(line, lnum, min_col, scan_unenclosed_words, physical_lines,
 end
 
 -- Process and collect scan_fn results.
-local function collect(buf_nr, win_id, scan_fn, text, line, physical_lines, collected)
+local function collect(
+	buf_nr,
+	win_id,
+	scan_fn,
+	text,
+	line,
+	physical_lines,
+	collected
+)
 	local candidates = scan_fn(text, line, physical_lines)
 	for _, cand in ipairs(candidates) do
 		cand.buf_nr = buf_nr
@@ -557,12 +716,20 @@ local function get_fold_ranges(win_id, start_line, end_line)
 	end)
 end
 
-function M.collect_candidates_in_range(buf_nr, win_id, start_line, end_line, scan_fn, skip_fold)
+function M.collect_candidates_in_range(
+	buf_nr,
+	win_id,
+	start_line,
+	end_line,
+	scan_fn,
+	skip_fold
+)
 	local collected = {}
 
 	-- Process a single logical line (merge hard wraps if terminal buffer).
 	local function process_chunk(line)
-		local text, new_end, phys = utils.get_merged_line(line, end_line, buf_nr, win_id)
+		local text, new_end, phys =
+			utils.get_merged_line(line, end_line, buf_nr, win_id)
 		collect(buf_nr, win_id, scan_fn, text, line, phys, collected)
 		return new_end + 1
 	end

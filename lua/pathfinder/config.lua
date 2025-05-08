@@ -115,7 +115,11 @@ function M.update_config_for_buffer()
 	-- Apply buffer-local settings based on the finalized config.
 	local includeexpr_target = M.config.includeexpr
 	if includeexpr_target and includeexpr_target ~= "" then
-		vim.api.nvim_set_option_value("includeexpr", includeexpr_target, { scope = "local", buf = bufnr })
+		vim.api.nvim_set_option_value(
+			"includeexpr",
+			includeexpr_target,
+			{ scope = "local", buf = bufnr }
+		)
 	end
 
 	update_cached_openings(M.config) -- update derived/cached values

@@ -37,7 +37,8 @@ local function html_unescape(s)
 end
 
 local function markdown_escape(s)
-	local marks = { ["\\"] = "\\\\", ["`"] = "\\`", ["["] = "\\[", ["]"] = "\\]" }
+	local marks =
+		{ ["\\"] = "\\\\", ["`"] = "\\`", ["["] = "\\[", ["]"] = "\\]" }
 	return s:gsub("([\\%`%[%]])", marks)
 end
 
@@ -48,14 +49,30 @@ local function extract_meta_description(html)
 	html = html:lower()
 	local V = "([^'\"]+)"
 	local patterns = {
-		"<meta%s+[^>]-property=['\"]og:description['\"][^>]-content=['\"]" .. V .. "['\"]",
-		"<meta%s+[^>]-content=['\"]" .. V .. "['\"][^>]-property=['\"]og:description['\"]",
-		"<meta%s+[^>]-name=['\"]og:description['\"][^>]-content=['\"]" .. V .. "['\"]",
-		"<meta%s+[^>]-content=['\"]" .. V .. "['\"][^>]-name=['\"]og:description['\"]",
-		"<meta%s+[^>]-name=['\"]description['\"][^>]-content=['\"]" .. V .. "['\"]",
-		"<meta%s+[^>]-content=['\"]" .. V .. "['\"][^>]-name=['\"]description['\"]",
-		"<meta%s+[^>]-property=['\"]description['\"][^>]-content=['\"]" .. V .. "['\"]",
-		"<meta%s+[^>]-content=['\"]" .. V .. "['\"][^>]-property=['\"]description['\"]",
+		"<meta%s+[^>]-property=['\"]og:description['\"][^>]-content=['\"]"
+			.. V
+			.. "['\"]",
+		"<meta%s+[^>]-content=['\"]"
+			.. V
+			.. "['\"][^>]-property=['\"]og:description['\"]",
+		"<meta%s+[^>]-name=['\"]og:description['\"][^>]-content=['\"]"
+			.. V
+			.. "['\"]",
+		"<meta%s+[^>]-content=['\"]"
+			.. V
+			.. "['\"][^>]-name=['\"]og:description['\"]",
+		"<meta%s+[^>]-name=['\"]description['\"][^>]-content=['\"]"
+			.. V
+			.. "['\"]",
+		"<meta%s+[^>]-content=['\"]"
+			.. V
+			.. "['\"][^>]-name=['\"]description['\"]",
+		"<meta%s+[^>]-property=['\"]description['\"][^>]-content=['\"]"
+			.. V
+			.. "['\"]",
+		"<meta%s+[^>]-content=['\"]"
+			.. V
+			.. "['\"][^>]-property=['\"]description['\"]",
 	}
 	for _, pat in ipairs(patterns) do
 		local desc = html:match(pat)
@@ -70,7 +87,9 @@ local function get_target_at_cursor()
 	local buf = api.nvim_get_current_buf()
 	local row, col0 = unpack(api.nvim_win_get_cursor(0))
 	local col = col0 + 1
-	local encl = config.config.url_enclosure_pairs or config.config.enclosure_pairs or {}
+	local encl = config.config.url_enclosure_pairs
+		or config.config.enclosure_pairs
+		or {}
 
 	-- Scan line for URLs/repos.
 	local hits = picker.collect({
@@ -90,7 +109,12 @@ local function get_target_at_cursor()
 				-- Check for enclosing delimiters.
 				for o, cl in pairs(encl) do
 					local os, ce = s - #o, f + #cl
-					if os >= 1 and col >= os and col < s and line:sub(os, s - 1) == o then
+					if
+						os >= 1
+						and col >= os
+						and col < s
+						and line:sub(os, s - 1) == o
+					then
 						in_url = true
 					end
 					if col > f and col <= ce and line:sub(f + 1, ce) == cl then
@@ -155,14 +179,22 @@ local function show_desc(link, desc)
 	local _, float_win = lsp.open_floating_preview(md, "markdown", {
 		border = "rounded",
 		focusable = false,
-		close_events = { "CursorMoved", "CursorMovedI", "BufHidden", "WinClosed" },
+		close_events = {
+			"CursorMoved",
+			"CursorMovedI",
+			"BufHidden",
+			"WinClosed",
+		},
 		max_width = 80,
 		max_height = 20,
 	})
 
 	-- Below here is all just code for safely mapping escape to close the float.
 	local float_buf = api.nvim_win_get_buf(float_win)
-	local group = api.nvim_create_augroup("HoverDescCleanup" .. float_win, { clear = true })
+	local group = api.nvim_create_augroup(
+		"HoverDescCleanup" .. float_win,
+		{ clear = true }
+	)
 
 	local function cleanup()
 		pcall(vim.keymap.del, "n", "<Esc>", { buffer = orig_buf })
@@ -187,7 +219,11 @@ local function show_desc(link, desc)
 	vim.keymap.set("n", "<Esc>", function()
 		-- Immediately remove keymap so next <Esc> is user's.
 		vim.keymap.del("n", "<Esc>", { buffer = orig_buf })
-		api.nvim_feedkeys(api.nvim_replace_termcodes("<Esc>", true, false, true), "m", false)
+		api.nvim_feedkeys(
+			api.nvim_replace_termcodes("<Esc>", true, false, true),
+			"m",
+			false
+		)
 		vim.schedule(function()
 			if api.nvim_win_is_valid(float_win) then
 				api.nvim_win_close(float_win, true)
@@ -227,7 +263,8 @@ function M.hover_description()
 
 				-- On success, grab and display the first non-empty description.
 				if res.code == 0 then
-					local ok, desc = pcall(extract_meta_description, res.stdout or "")
+					local ok, desc =
+						pcall(extract_meta_description, res.stdout or "")
 					if ok and desc and #desc > 0 then
 						done = true
 						-- Kill all the other outstanding curl jobs.
@@ -241,7 +278,11 @@ function M.hover_description()
 
 				if pending == 0 and not done then
 					vim.schedule(function()
-						vim.notify("Couldn't retrieve a description", vim.log.levels.INFO)
+						vim.notify(
+							"Couldn't retrieve a description",
+							vim.log.levels.INFO,
+							{ title = "pathfinder.nvim" }
+						)
 					end)
 				end
 			end)

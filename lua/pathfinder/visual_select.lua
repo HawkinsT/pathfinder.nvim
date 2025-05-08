@@ -15,7 +15,8 @@ function M.set_default_highlights()
 
 	for _, item in ipairs(shared_highlights) do
 		local group, opts = item[1], item[2]
-		local ok, current = pcall(vim.api.nvim_get_hl, 0, { name = group, link = false })
+		local ok, current =
+			pcall(vim.api.nvim_get_hl, 0, { name = group, link = false })
 		if not ok or vim.tbl_isempty(current) then
 			vim.api.nvim_set_hl(0, group, opts)
 		end
@@ -55,17 +56,28 @@ function M.highlight_candidate(candidate, input_prefix, ns)
 
 	-- Main filename/URL spans.
 	for i, span in ipairs(candidate.target_spans) do
-		put(span.lnum - 1, span.start_col, span.finish_col + 1, is_match and i == 1)
+		put(
+			span.lnum - 1,
+			span.start_col,
+			span.finish_col + 1,
+			is_match and i == 1
+		)
 	end
 
 	-- Line‐number spans.
 	if is_match and candidate.line_nr_spans then
 		for _, span in ipairs(candidate.line_nr_spans) do
-			vim.api.nvim_buf_set_extmark(buf, ns, span.lnum - 1, span.start_col, {
-				hl_group = "PathfinderNumberHighlight",
-				end_col = span.finish_col + 1,
-				priority = 10001,
-			})
+			vim.api.nvim_buf_set_extmark(
+				buf,
+				ns,
+				span.lnum - 1,
+				span.start_col,
+				{
+					hl_group = "PathfinderNumberHighlight",
+					end_col = span.finish_col + 1,
+					priority = 10001,
+				}
+			)
 		end
 	end
 end
@@ -162,7 +174,13 @@ local function get_matching_candidates(candidates, input)
 end
 
 --- Dims all visible lines, then calls highlight_candidate() for each candidate.
-local function update_highlights(candidates, input_prefix, highlight_ns, dim_ns, highlight_candidate)
+local function update_highlights(
+	candidates,
+	input_prefix,
+	highlight_ns,
+	dim_ns,
+	highlight_candidate
+)
 	local windows = M.get_windows_to_check()
 	local seen_bufs = {}
 
@@ -204,29 +222,55 @@ local function update_highlights(candidates, input_prefix, highlight_ns, dim_ns,
 end
 
 -- Prevent highlights getting stuck on error.
-local function safe_update_highlights(candidates, input_prefix, highlight_ns, dim_ns, highlight_candidate)
+local function safe_update_highlights(
+	candidates,
+	input_prefix,
+	highlight_ns,
+	dim_ns,
+	highlight_candidate
+)
 	local function on_error(err)
 		local wins = M.get_windows_to_check()
 		clear_extmarks(wins, highlight_ns, dim_ns)
 
 		-- Still provide the full error message.
 		local full = debug.traceback(tostring(err), 2)
-		vim.notify(("%s"):format(full), vim.log.levels.ERROR, {
-			title = "pathfinder",
-			timeout = false,
-		})
+		vim.notify(
+			("%s"):format(full),
+			vim.log.levels.ERROR,
+			{ title = "pathfinder.nvim" }
+		)
 	end
 
 	xpcall(function()
-		update_highlights(candidates, input_prefix, highlight_ns, dim_ns, highlight_candidate)
+		update_highlights(
+			candidates,
+			input_prefix,
+			highlight_ns,
+			dim_ns,
+			highlight_candidate
+		)
 	end, on_error)
 end
 
 -- Main input loop that starts with an immediate highlight, then reads user keystrokes.
-function M.start_selection_loop(candidates, highlight_ns, dim_ns, highlight_candidate, on_complete, required_length)
+function M.start_selection_loop(
+	candidates,
+	highlight_ns,
+	dim_ns,
+	highlight_candidate,
+	on_complete,
+	required_length
+)
 	local user_input = ""
 
-	safe_update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
+	safe_update_highlights(
+		candidates,
+		user_input,
+		highlight_ns,
+		dim_ns,
+		highlight_candidate
+	)
 
 	-- Read keystrokes.
 	while true do
@@ -235,8 +279,13 @@ function M.start_selection_loop(candidates, highlight_ns, dim_ns, highlight_cand
 			break
 		end
 
-		local backspace_tc = vim.api.nvim_replace_termcodes("<BS>", true, false, true)
-		local is_backspace = (key == 8 or key == 127 or (type(key) == "string" and key == backspace_tc))
+		local backspace_tc =
+			vim.api.nvim_replace_termcodes("<BS>", true, false, true)
+		local is_backspace = (
+			key == 8
+			or key == 127
+			or (type(key) == "string" and key == backspace_tc)
+		)
 		if is_backspace then
 			if #user_input > 0 then
 				user_input = user_input:sub(1, -2)
@@ -251,7 +300,13 @@ function M.start_selection_loop(candidates, highlight_ns, dim_ns, highlight_cand
 			user_input = user_input .. char
 		end
 
-		safe_update_highlights(candidates, user_input, highlight_ns, dim_ns, highlight_candidate)
+		safe_update_highlights(
+			candidates,
+			user_input,
+			highlight_ns,
+			dim_ns,
+			highlight_candidate
+		)
 		local matches = get_matching_candidates(candidates, user_input)
 
 		-- If no matches, cancel.

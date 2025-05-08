@@ -16,7 +16,14 @@ function M.collect(opts)
 	local all = {}
 	for _, win in ipairs(opts.win_ids) do
 		if api.nvim_win_is_valid(win) then
-			local raw = candidates.collect_candidates_in_range(buf, win, s, e, scan_fn, skip_folds)
+			local raw = candidates.collect_candidates_in_range(
+				buf,
+				win,
+				s,
+				e,
+				scan_fn,
+				skip_folds
+			)
 			vim.list_extend(all, raw)
 		end
 	end

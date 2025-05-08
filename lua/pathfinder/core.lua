@@ -30,7 +30,10 @@ local function try_open_file(valid_cand, is_gF, linenr)
 		for _, t in ipairs(api.nvim_list_tabpages()) do
 			for _, w in ipairs(api.nvim_tabpage_list_wins(t)) do
 				local buf = api.nvim_win_get_buf(w)
-				if fn.fnamemodify(api.nvim_buf_get_name(buf), ":p") == open_path then
+				if
+					fn.fnamemodify(api.nvim_buf_get_name(buf), ":p")
+					== open_path
+				then
 					api.nvim_set_current_tabpage(t)
 					api.nvim_set_current_win(w)
 					if line_arg then
@@ -67,7 +70,14 @@ local function select_file(is_gF)
 			local e = fn.line("w$", win)
 
 			local scan_fn = function(line_text, lnum, physical_lines)
-				return candidates.scan_line(line_text, lnum, 1, cfg.scan_unenclosed_words, physical_lines, cfg)
+				return candidates.scan_line(
+					line_text,
+					lnum,
+					1,
+					cfg.scan_unenclosed_words,
+					physical_lines,
+					cfg
+				)
 			end
 
 			-- Wrap validation in the individual buffer's context.
@@ -99,32 +109,51 @@ local function select_file(is_gF)
 	end
 
 	if #all_raw == 0 then
-		vim.notify("No valid file targets in visible windows", vim.log.levels.INFO)
+		vim.notify(
+			"No valid file targets in visible windows",
+			vim.log.levels.INFO,
+			{ title = "pathfinder.nvim" }
+		)
 		return
 	end
 
 	visual_select.assign_labels(all_raw, config.config.selection_keys)
-	visual_select.start_selection_loop(all_raw, highlight_ns, dim_ns, function(cand, prefix, ns)
-		if cand.label:sub(1, #prefix) == prefix then
-			if not is_gF then
-				cand.line_nr_spans = nil
-			end
-			visual_select.highlight_candidate(cand, prefix, ns)
-		end
-	end, function(sel)
-		api.nvim_win_call(sel.win_id, function()
-			validation.validate_candidate(sel.filename, function(chosen_path)
-				if chosen_path and chosen_path ~= "" then
-					sel.open_path = chosen_path
-					vim.schedule(function()
-						try_open_file(sel, is_gF, sel.linenr)
-					end)
-				else
-					vim.notify("No file selected or resolved", vim.log.levels.WARN)
+	visual_select.start_selection_loop(
+		all_raw,
+		highlight_ns,
+		dim_ns,
+		function(cand, prefix, ns)
+			if cand.label:sub(1, #prefix) == prefix then
+				if not is_gF then
+					cand.line_nr_spans = nil
 				end
-			end, false)
-		end)
-	end, #all_raw[1].label)
+				visual_select.highlight_candidate(cand, prefix, ns)
+			end
+		end,
+		function(sel)
+			api.nvim_win_call(sel.win_id, function()
+				validation.validate_candidate(
+					sel.filename,
+					function(chosen_path)
+						if chosen_path and chosen_path ~= "" then
+							sel.open_path = chosen_path
+							vim.schedule(function()
+								try_open_file(sel, is_gF, sel.linenr)
+							end)
+						else
+							vim.notify(
+								"No file selected or resolved",
+								vim.log.levels.WARN,
+								{ title = "pathfinder.nvim" }
+							)
+						end
+					end,
+					false
+				)
+			end)
+		end,
+		#all_raw[1].label
+	)
 end
 
 -- Processes files under the cursor, regardless of if unenclosed or not.
@@ -138,7 +167,11 @@ local function process_cursor_file(is_gF, linenr)
 		return false
 	end
 
-	return try_open_file({ open_path = resolved, linenr = line_to_use }, is_gF, line_to_use)
+	return try_open_file(
+		{ open_path = resolved, linenr = line_to_use },
+		is_gF,
+		line_to_use
+	)
 end
 
 local function custom_gf(is_gF, count)
@@ -154,17 +187,34 @@ local function custom_gf(is_gF, count)
 	local end_ln = api.nvim_buf_line_count(buf) -- vim.fn.line("$")
 
 	if not config.config.scan_unenclosed_words then
-		if (is_gF or (not is_gF and count == 0)) and process_cursor_file(is_gF, count) then
+		if
+			(is_gF or (not is_gF and count == 0))
+			and process_cursor_file(is_gF, count)
+		then
 			return
 		end
 	end
 
 	local scan_fn = function(line, ln, phys)
 		local minc = (ln == curln) and ccol or nil
-		return candidates.scan_line(line, ln, minc, config.config.scan_unenclosed_words, phys, config.config)
+		return candidates.scan_line(
+			line,
+			ln,
+			minc,
+			config.config.scan_unenclosed_words,
+			phys,
+			config.config
+		)
 	end
 
-	local raw = candidates.collect_candidates_in_range(buf, win, curln, end_ln, scan_fn, false)
+	local raw = candidates.collect_candidates_in_range(
+		buf,
+		win,
+		curln,
+		end_ln,
+		scan_fn,
+		false
+	)
 
 	if config.config.scan_unenclosed_words then
 		local fwd, cur_cand, ci = {}, nil, nil
@@ -198,23 +248,37 @@ local function custom_gf(is_gF, count)
 		end
 	end
 
-	validation.collect_valid_candidates_seq(raw, idx, function(valids, cancelled)
-		if cancelled then
-			return
-		end
-		if #valids >= idx then
-			local c = valids[idx]
-			local linenr = nil
-			if is_gF then
-				linenr = (nextfile and user_count > 0 and user_count) or c.linenr or 1
+	validation.collect_valid_candidates_seq(
+		raw,
+		idx,
+		function(valids, cancelled)
+			if cancelled then
+				return
 			end
-			try_open_file(c, is_gF, linenr)
-		elseif #valids == 0 then
-			vim.notify("No valid file targets found", vim.log.levels.INFO)
-		else
-			vim.notify("No file target found (" .. #valids .. " available)", vim.log.levels.INFO)
+			if #valids >= idx then
+				local c = valids[idx]
+				local linenr = nil
+				if is_gF then
+					linenr = (nextfile and user_count > 0 and user_count)
+						or c.linenr
+						or 1
+				end
+				try_open_file(c, is_gF, linenr)
+			elseif #valids == 0 then
+				vim.notify(
+					"No valid file targets found",
+					vim.log.levels.INFO,
+					{ title = "pathfinder.nvim" }
+				)
+			else
+				vim.notify(
+					"No file target found (" .. #valids .. " available)",
+					vim.log.levels.INFO,
+					{ title = "pathfinder.nvim" }
+				)
+			end
 		end
-	end)
+	)
 end
 
 --- Jump to the count'th valid file target.
@@ -239,7 +303,14 @@ local function jump_file(direction, count)
 		start_ln,
 		end_ln,
 		function(line, lnum, phys)
-			return candidates.scan_line(line, lnum, nil, config.config.scan_unenclosed_words, phys, config.config)
+			return candidates.scan_line(
+				line,
+				lnum,
+				nil,
+				config.config.scan_unenclosed_words,
+				phys,
+				config.config
+			)
 		end,
 		false -- don't skip folds
 	)
@@ -248,10 +319,16 @@ local function jump_file(direction, count)
 	-- Filter out candidate at the cursor to prevent next/prev from re-selecting it.
 	local filtered = {}
 	for _, c in ipairs(raw) do
-		local overlaps = (c.lnum == curln and c.start_col <= ccol and c.finish >= ccol)
+		local overlaps = (
+			c.lnum == curln
+			and c.start_col <= ccol
+			and c.finish >= ccol
+		)
 		if not overlaps then
 			if direction == 1 then
-				if c.lnum > curln or (c.lnum == curln and c.start_col > ccol) then
+				if
+					c.lnum > curln or (c.lnum == curln and c.start_col > ccol)
+				then
 					table.insert(filtered, c)
 				end
 			else
@@ -285,8 +362,13 @@ local function jump_file(direction, count)
 			api.nvim_win_set_cursor(0, { c.lnum, c.start_col - 1 })
 		else
 			vim.notify(
-				string.format("No %s file target found (%d available)", direc_name, #valids),
-				vim.log.levels.INFO
+				string.format(
+					"No %s file target found (%d available)",
+					direc_name,
+					#valids
+				),
+				vim.log.levels.INFO,
+				{ title = "pathfinder.nvim" }
 			)
 		end
 	end)
