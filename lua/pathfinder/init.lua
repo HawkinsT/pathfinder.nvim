@@ -1,10 +1,10 @@
-local version = require("pathfinder.version")
+local ver = require("pathfinder.version")
 
 -- Disable functions and warn if required Neovim version not met.
-local compatible, current = version.is_compatible()
+local compatible, current = ver.is_compatible()
 if not compatible then
 	vim.schedule(function()
-		version.notify(current)
+		ver.notify(current)
 	end)
 	local nop = function() end
 	return {
@@ -24,6 +24,10 @@ if not compatible then
 end
 
 local M = {}
+
+-- Plugin version.
+M.version = "0.7.3"
+
 local vim = vim
 
 local config = require("pathfinder.config")
