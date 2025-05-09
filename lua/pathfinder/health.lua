@@ -24,7 +24,7 @@ function M.check()
 				"`/proc` is not available, terminal directory resolution may fail",
 				{
 					"Install Cygwin/MSYS2 or run Neovim inside WSL",
-					"Download from https://cygwin.com or http://msys2.org",
+					"Download from https://cygwin.com or https://msys2.org",
 				}
 			)
 		end
