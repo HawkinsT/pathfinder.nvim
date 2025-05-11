@@ -1,5 +1,5 @@
 *pathfinder.txt*		       Enhanced file and URL search for Neovim
-						       Last change: 2025 May 3
+						      Last change: 2025 May 12
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
