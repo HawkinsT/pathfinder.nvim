@@ -137,7 +137,7 @@ Defaults ~
 	    ["`"] = "`",
 	},
 	url_enclosure_pairs = nil,
-	includeexpr = "",
+	includeexpr = nil,
 	ft_overrides = {},
 	remap_default_keys = true,
 	offer_multiple_options = true,
@@ -270,7 +270,7 @@ Default:
 
 						      *pathfinder-includeexpr*
 includeexpr ~
-Default: `""` (string)
+Default: `nil` (string)
 
     A helper function to set 'includeexpr'.
 

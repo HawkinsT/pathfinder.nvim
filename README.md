@@ -105,7 +105,7 @@ require('pathfinder').setup({
 		["`"] = "`",
 	},
 	url_enclosure_pairs = nil, -- If set, this will supersede enclosure_pairs for URL picking
-	includeexpr = "", -- Helper function to set `includeexpr`
+	includeexpr = nil, -- Helper function to set `includeexpr`
 	ft_overrides = {}, -- Filetype-specific settings
 
 	-- User interaction

@@ -26,7 +26,7 @@ local default_config = {
 		["`"] = "`",
 	},
 	url_enclosure_pairs = nil,
-	includeexpr = "",
+	includeexpr = nil,
 	ft_overrides = {},
 
 	-- User interaction:
@@ -65,7 +65,7 @@ function M.get_config_for_buffer(bufnr)
 	if ft and ft ~= "" then
 		-- Apply built-in ft module settings (overwrite defaults).
 		local ft_ok, ft_module = pcall(require, "pathfinder.ft." .. ft)
-		if ft_ok and ft_module and ft_module.config then
+		if ft_ok and type(ft_module) == "table" and ft_module.config then
 			for key, value in pairs(ft_module.config) do
 				current_config[key] = vim.deepcopy(value)
 			end
@@ -88,41 +88,18 @@ end
 -- and ft_overrides (in reverse order of precedence) for the current buffer.
 function M.update_config_for_buffer()
 	local bufnr = vim.api.nvim_get_current_buf()
-	local current_config = vim.deepcopy(default_config)
-	current_config.ft_overrides = default_config.ft_overrides or {}
 
-	local ft = vim.bo[bufnr].filetype
-	if ft and ft ~= "" then
-		-- Apply built-in ft module settings (overwrite defaults).
-		local ft_ok, ft_module = pcall(require, "pathfinder.ft." .. ft)
-		if ft_ok and ft_module and ft_module.config then
-			for key, value in pairs(ft_module.config) do
-				current_config[key] = vim.deepcopy(value)
-			end
-		end
-
-		-- Apply user ft_overrides (overwrite defaults and ft module settings).
-		local user_override_for_ft = default_config.ft_overrides[ft]
-		if user_override_for_ft then
-			for key, value in pairs(user_override_for_ft) do
-				current_config[key] = vim.deepcopy(value)
-			end
-		end
-	end
-
-	M.config = current_config -- finalize active config
+	M.config = M.get_config_for_buffer(bufnr)
 
 	-- Apply buffer-local settings based on the finalized config.
-	local includeexpr_target = M.config.includeexpr
-	if includeexpr_target and includeexpr_target ~= "" then
+	if M.config.includeexpr ~= nil then
 		vim.api.nvim_set_option_value(
 			"includeexpr",
-			includeexpr_target,
+			M.config.includeexpr,
 			{ scope = "local", buf = bufnr }
 		)
 	end
 
-	update_cached_openings(M.config) -- update derived/cached values
 	M.suffix_cache[bufnr] = nil
 end
 
