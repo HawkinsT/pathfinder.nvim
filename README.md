@@ -92,8 +92,13 @@ require('pathfinder').setup({
 
 	-- File resolution settings
 	associated_filetypes = {}, -- File extensions that should be tried (also see `suffixesadd`)
-    url_providers = { -- List of software forges to try when resolving username/repo links
+    url_providers = { -- List of software forges to try when resolving owner/repo links
 		"https://github.com/%s.git",
+	},
+	flake_providers = { -- List of Nix flake targets, e.g. github:owner/repo
+		github = "https://github.com/%s",
+		gitlab = "https://gitlab.com/%s",
+		sourcehut = "https://git.sr.ht/%s",
 	},
 	enclosure_pairs = { -- Define all file path delimiters to search between
 		["("] = ")",

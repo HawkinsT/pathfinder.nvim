@@ -86,8 +86,9 @@ behaviour can be toggled by |offer_multiple_options|, with the first file
 found with a matching extension in |associated_filetypes| or 'suffixesadd'
 being selected automatically if this is false.
 
-Like `[count]gf`, `[count]gx` will open the count'th valid URL or repository
-(specified by |url_providers|) at or after the cursor. Like `gx`
+Like `[count]gf`, `[count]gx` will open the count'th valid URL, repository, or
+flake (specified by |url_providers| / |flake_providers|) at or after the
+cursor. Like `gx`
 
 Key Features: ~
   - Resolves files with extensions from |associated_filetypes| and 'suffixesadd'.
@@ -126,6 +127,11 @@ Defaults ~
  	associated_filetypes = {},
 	url_providers = {
 	    "https://github.com/%s.git",
+	},
+	flake_providers = {
+		github = "https://github.com/%s",
+		gitlab = "https://gitlab.com/%s",
+		sourcehut = "https://git.sr.ht/%s",
 	},
  	enclosure_pairs = {
 	    ["("] = ")",
@@ -403,9 +409,9 @@ numbers (if present). This function is mapped to `<leader>gF` by default.
 
 						       *pathfinder-select_url*
 select_url() ~
-Similar to `select_file()`, but displays and navigates to URLs and repos (as
-specified by |url_providers|). This function is mapped to `<leader>gx` by
-default.
+Similar to `select_file()`, but displays and navigates to URLs, repos, and
+flakes (as specified by |url_providers and |flake_providers| respectively).
+This function is mapped to `<leader>gx` by default.
 
 Function-specific options are |url_enclosure_pairs|, |pick_from_all_windows|,
 and |selection_keys|.
