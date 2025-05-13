@@ -1,5 +1,5 @@
 *pathfinder.txt*		       Enhanced file and URL search for Neovim
-						      Last change: 2025 May 12
+						      Last change: 2025 May 13
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
@@ -37,7 +37,7 @@ It enhances file/URL resolution with:
 
   - Whole document/line look-ahead with optional count.
   - Optional user selection for ambiguous file names.
-  - Support for GitHub-style username/repo links.
+  - Support for GitHub-style owner/repo links.
   - Configurable multi-character enclosure pairs.
   - Configurable file opening modes (e.g. edit, split, or a custom function).
   - `Filetype`-specific overrides for all config options.
@@ -363,18 +363,18 @@ Mapped to `[f` by default.
 
 							 *pathfinder-next_url*
 next_url(count) ~
-Navigates to the count'th URL or username/repo target after the cursor in the
+Navigates to the count'th URL or owner/repo target after the cursor in the
 current buffer. This looks for strings starting https:// or http://, as well
-as those matching a username/repo format. By default, links won't be validated
+as those matching a owner/repo format. By default, links won't be validated
 (checking that they return a 2xx status code) due to performance concerns,
 however this may be enabled via setting |validate_urls|. Mapped to `]u` by
 default.
 
 							 *pathfinder-prev_url*
 prev_url(count) ~
-Navigates to the count'th URL or username/repo target before the cursor in the
+Navigates to the count'th URL or owner/repo target before the cursor in the
 current buffer. This looks for strings starting https:// or http://, as well
-as those matching a username/repo format. By default, links won't be validated
+as those matching a owner/repo format. By default, links won't be validated
 (checking that they return a 2xx status code) due to performance concerns,
 however this may be enabled via setting |validate_urls|. Mapped to `[u` by
 default.
