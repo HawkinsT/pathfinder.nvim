@@ -207,13 +207,29 @@ function M.scan_line_for_urls(line_text, lnum, physical_lines)
 	-- Filter for only actual URLs or owner/repo shortcuts and deduplicate.
 	local unique = {}
 	local seen = {}
+
 	for _, cand in ipairs(raw) do
 		local txt = cand.filename
-		if M.is_valid.url(txt) or M.is_valid.repo(txt) then
+		local url = txt:match(patterns.url) or (M.is_valid.repo(txt) and txt)
+
+		-- If http(s) URL found inside a larger string, narrow the spans.
+		if url then
+			local s, e = txt:find(patterns.url)
+			if s and e then
+				for _, span in ipairs(cand.target_spans) do
+					local orig = span.start_col
+					-- Shift each span so it covers only the http(s)... part.
+					span.start_col = orig + s - 1
+					span.finish_col = orig + e - 1
+				end
+			end
+		end
+
+		if url then
 			local key = ("%d:%d:%d"):format(lnum, cand.start_col, cand.finish)
 			if not seen[key] then
 				seen[key] = true
-				cand.url = txt
+				cand.url = url
 				table.insert(unique, cand)
 			end
 		end
