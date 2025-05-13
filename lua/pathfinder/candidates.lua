@@ -486,66 +486,70 @@ function M.scan_line(
 	local order = 0
 
 	-- 1. Match structured patterns across the entire line.
-	for _, pat in ipairs(patterns) do
-		local search_offset = 1
-		while search_offset <= #line do
-			local match_s, match_e, filename, linenr_str =
-				line:find(pat.pattern, search_offset)
-			if not match_s then
-				break
-			end
-			local abs_start_col = match_s
-			local abs_finish_col = match_e
-			if not min_col or abs_finish_col >= min_col then
-				if filename and filename ~= "" and linenr_str then
-					local candidate = {
-						filename = filename,
-						lnum = lnum,
-						start_col = abs_start_col,
-						finish = abs_finish_col,
-						linenr = tonumber(linenr_str),
-						order = order + 1,
-						type = "structured",
-					}
-					-- Calculate spans for the entire match:
-					candidate.spans = M.calculate_spans(
-						abs_start_col,
-						abs_finish_col - 1,
-						physical_lines,
-						lnum
-					)
-
-					-- File spans:
-					local matched_text = line:sub(match_s, match_e)
-					local file_start = matched_text:find(filename, 1, true)
-					if file_start then
-						local file_col_start = abs_start_col + file_start - 1
-						local file_col_end = file_col_start + #filename - 1
-						candidate.target_spans = M.calculate_spans(
-							file_col_start,
-							file_col_end,
-							physical_lines,
-							lnum
-						)
-					end
-
-					-- Line number spans:
-					local ln_start = matched_text:find(linenr_str, 1, true)
-					if ln_start then
-						local ln_col_start = abs_start_col + ln_start - 1
-						local ln_col_end = ln_col_start + #linenr_str - 1
-						candidate.line_nr_spans = M.calculate_spans(
-							ln_col_start,
-							ln_col_end,
-							physical_lines,
-							lnum
-						)
-					end
-					table.insert(results, candidate)
-					order = order + 1
+	if scan_unenclosed_words then
+		for _, pat in ipairs(patterns) do
+			local search_offset = 1
+			while search_offset <= #line do
+				local match_s, match_e, filename, linenr_str =
+					line:find(pat.pattern, search_offset)
+				if not match_s then
+					break
 				end
+				local abs_start_col = match_s
+				local abs_finish_col = match_e
+				if not min_col or abs_finish_col >= min_col then
+					if filename and filename ~= "" and linenr_str then
+						local candidate = {
+							filename = filename,
+							lnum = lnum,
+							start_col = abs_start_col,
+							finish = abs_finish_col,
+							linenr = tonumber(linenr_str),
+							order = order + 1,
+							type = "structured",
+						}
+						-- Calculate spans for the entire match:
+						candidate.spans = M.calculate_spans(
+							abs_start_col,
+							abs_finish_col - 1,
+							physical_lines,
+							lnum
+						)
+
+						-- File spans:
+						local matched_text = line:sub(match_s, match_e)
+						local file_start = matched_text:find(filename, 1, true)
+						if file_start then
+							local file_col_start = abs_start_col
+								+ file_start
+								- 1
+							local file_col_end = file_col_start + #filename - 1
+							candidate.target_spans = M.calculate_spans(
+								file_col_start,
+								file_col_end,
+								physical_lines,
+								lnum
+							)
+						end
+
+						-- Line number spans:
+						local ln_start = matched_text:find(linenr_str, 1, true)
+						if ln_start then
+							local ln_col_start = abs_start_col + ln_start - 1
+							local ln_col_end = ln_col_start + #linenr_str - 1
+							candidate.line_nr_spans = M.calculate_spans(
+								ln_col_start,
+								ln_col_end,
+								physical_lines,
+								lnum
+							)
+						end
+						table.insert(results, candidate)
+						order = order + 1
+					end
+				end
+				search_offset = match_e + 1
 			end
-			search_offset = match_e + 1
 		end
 	end
 
