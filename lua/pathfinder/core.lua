@@ -216,6 +216,8 @@ local function custom_gf(is_gF, count)
 		false
 	)
 
+	raw = candidates.deduplicate_candidates(raw)
+
 	if config.config.scan_unenclosed_words then
 		local fwd, cur_cand, ci = {}, nil, nil
 		for _, c in ipairs(raw) do
