@@ -16,6 +16,11 @@ local default_config = {
 	url_providers = {
 		"https://github.com/%s.git",
 	},
+	flake_providers = {
+		github = "https://github.com/%s",
+		gitlab = "https://gitlab.com/%s",
+		sourcehut = "https://git.sr.ht/%s",
+	},
 	enclosure_pairs = {
 		["("] = ")",
 		["{"] = "}",

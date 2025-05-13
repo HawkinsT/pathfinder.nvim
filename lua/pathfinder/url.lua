@@ -16,6 +16,7 @@ local dim_ns = api.nvim_create_namespace("pathfinder_url_dim")
 local patterns = {
 	url = "[Hh][Tt][Tt][Pp][Ss]?://[%w%-_.%?%/%%:=&]+",
 	repo = "^[%w._%-]+/[%w._%-]+$",
+	flake = "^([%w._%-]+):([^%s]+)$",
 }
 
 local function make_validator(pat)
@@ -27,6 +28,7 @@ end
 M.is_valid = {
 	url = make_validator(patterns.url),
 	repo = make_validator(patterns.repo),
+	flake = make_validator(patterns.flake),
 }
 
 -- Checks whether a URL returns a 2xx HTTP status.
@@ -94,6 +96,21 @@ local function validate_candidate(cand, callback)
 			end
 		end
 		try_provider(1)
+
+	-- Handle flakes.
+	elseif M.is_valid.flake(cand.url) then
+		local prefix, rest = cand.url:match(patterns.flake)
+		local provs = config.config.flake_providers or {}
+		local fmt = provs[prefix]
+		if not fmt then
+			-- Unknown flake provider.
+			vim.schedule(function()
+				callback(false)
+			end)
+		else
+			local full = fmt:format(rest)
+			check_url_exists(full, callback)
+		end
 	else
 		vim.schedule(function()
 			callback(false)
@@ -135,39 +152,42 @@ local function try_open_urls(urls, on_none)
 end
 
 local function open_candidate_url(candidate)
-	if M.is_valid.url(candidate) then
-		try_open_urls({ candidate }, function()
-			vim.notify(
-				"URL not accessible: " .. candidate,
-				vim.log.levels.ERROR,
-				{ title = "pathfinder.nvim" }
-			)
+	local function notify_error(message, level)
+		vim.notify(
+			message,
+			level or vim.log.levels.ERROR,
+			{ title = "pathfinder.nvim" }
+		)
+	end
+
+	local function try_open_with_error(urls, error_message, level)
+		try_open_urls(urls, function()
+			notify_error(error_message, level)
 		end)
+	end
+
+	if M.is_valid.url(candidate) then
+		try_open_with_error({ candidate }, "URL not accessible: " .. candidate)
 	elseif M.is_valid.repo(candidate) then
 		local provs = config.config.url_providers or {}
 		if #provs == 0 then
-			return vim.notify(
-				"No URL providers configured.",
-				vim.log.levels.ERROR,
-				{ title = "pathfinder.nvim" }
-			)
+			return notify_error("No URL providers configured.")
 		end
 		local urls = vim.tbl_map(function(fmt)
 			return fmt:format(candidate)
 		end, provs)
-		try_open_urls(urls, function()
-			vim.notify(
-				"No provider found for " .. candidate,
-				vim.log.levels.ERROR,
-				{ title = "pathfinder.nvim" }
-			)
-		end)
+		try_open_with_error(urls, "No provider found for " .. candidate)
+	elseif M.is_valid.flake(candidate) then
+		local prefix, rest = candidate:match(patterns.flake)
+		local provs = config.config.flake_providers or {}
+		local fmt = provs[prefix]
+		if not fmt then
+			return notify_error("Flake not found: " .. prefix)
+		end
+		local url = fmt:format(rest)
+		try_open_with_error({ url }, "Flake not accessible: " .. url)
 	else
-		vim.notify(
-			"Not a valid URL or repo: " .. candidate,
-			vim.log.levels.ERROR,
-			{ title = "pathfinder.nvim" }
-		)
+		notify_error("Not a valid URL, repo, or flake: " .. candidate)
 	end
 end
 
@@ -210,7 +230,9 @@ function M.scan_line_for_urls(line_text, lnum, physical_lines)
 
 	for _, cand in ipairs(raw) do
 		local txt = cand.filename
-		local url = txt:match(patterns.url) or (M.is_valid.repo(txt) and txt)
+		local url = txt:match(patterns.url) -- handle, e.g. git+https://...
+			or (M.is_valid.repo(txt) and txt)
+			or (M.is_valid.flake(txt) and txt)
 
 		-- If http(s) URL found inside a larger string, narrow the spans.
 		if url then
@@ -282,6 +304,28 @@ function M.select_url()
 	end
 
 	all = candidates.deduplicate_candidates(all)
+
+	-- Filter out non-valid flakes.
+	local fp = config.config.flake_providers or {}
+	local filtered = {}
+
+	for _, cand in ipairs(all) do
+		local u = cand.url
+
+		if M.is_valid.url(u) then
+			table.insert(filtered, cand)
+		elseif M.is_valid.repo(u) then
+			table.insert(filtered, cand)
+		elseif M.is_valid.flake(u) then
+			-- Only keep flakes whose prefix is in flake_providers.
+			local prefix = u:match("^([%w._%-]+):")
+			if fp[prefix] then
+				table.insert(filtered, cand)
+			end
+		end
+	end
+
+	all = filtered
 
 	if #all == 0 then
 		vim.notify(
