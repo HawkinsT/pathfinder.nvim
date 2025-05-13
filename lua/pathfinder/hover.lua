@@ -139,10 +139,18 @@ end
 local function build_url_candidates(target)
 	local set = {}
 
-	-- If it's a repo (username/repo), map through url_providers.
+	-- If it's a repo (owner/repo), map through url_providers.
 	if url.is_valid.repo(target) then
 		for _, fmt in ipairs(config.config.url_providers or {}) do
 			set[fmt:format(target)] = true
+		end
+	end
+
+	-- If it’s a flake (prefix:address), map through flake_providers.
+	if url.is_valid.flake(target) then
+		local full = url.flake_to_url(target)
+		if full then
+			set[full] = true
 		end
 	end
 

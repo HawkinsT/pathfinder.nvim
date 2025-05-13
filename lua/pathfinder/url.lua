@@ -16,12 +16,12 @@ local dim_ns = api.nvim_create_namespace("pathfinder_url_dim")
 local patterns = {
 	url = "[Hh][Tt][Tt][Pp][Ss]?://[%w%-_.%?%/%%:=&]+",
 	repo = "^[%w._%-]+/[%w._%-]+$",
-	flake = "^([%w._%-]+):",
+	flake = "^([%w._%-]+):(.+)$",
 }
 
 local function make_validator(pat)
 	return function(s)
-		return s:match(pat)
+		return s:match(pat) ~= nil
 	end
 end
 
@@ -29,14 +29,24 @@ M.is_valid = {
 	url = make_validator(patterns.url),
 	repo = make_validator(patterns.repo),
 	flake = function(s)
-		local prefix = make_validator(patterns.flake)
+		local prefix = s:match(patterns.flake)
 		if not prefix then
 			return false
 		end
-		local provs = config.config.flake_providers or {}
-		return provs[prefix] ~= nil
+		local providers = config.config.flake_providers or {}
+		return providers[prefix] ~= nil
 	end,
 }
+
+function M.flake_to_url(s)
+	local prefix, rest = s:match(patterns.flake)
+	if not prefix then
+		return nil
+	end
+	local providers = config.config.flake_providers or {}
+	local fmt = providers[prefix]
+	return fmt and fmt:format(rest) or nil
+end
 
 -- Checks whether a URL returns a 2xx HTTP status.
 local function check_url_exists(url, callback)
