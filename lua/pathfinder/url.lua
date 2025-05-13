@@ -16,7 +16,7 @@ local dim_ns = api.nvim_create_namespace("pathfinder_url_dim")
 local patterns = {
 	url = "[Hh][Tt][Tt][Pp][Ss]?://[%w%-_.%?%/%%:=&]+",
 	repo = "^[%w._%-]+/[%w._%-]+$",
-	flake = "^([%w._%-]+):([^%s]+)$",
+	flake = "^([%w._%-]+):",
 }
 
 local function make_validator(pat)
@@ -28,7 +28,14 @@ end
 M.is_valid = {
 	url = make_validator(patterns.url),
 	repo = make_validator(patterns.repo),
-	flake = make_validator(patterns.flake),
+	flake = function(s)
+		local prefix = make_validator(patterns.flake)
+		if not prefix then
+			return false
+		end
+		local provs = config.config.flake_providers or {}
+		return provs[prefix] ~= nil
+	end,
 }
 
 -- Checks whether a URL returns a 2xx HTTP status.
@@ -305,28 +312,6 @@ function M.select_url()
 
 	all = candidates.deduplicate_candidates(all)
 
-	-- Filter out non-valid flakes.
-	local fp = config.config.flake_providers or {}
-	local filtered = {}
-
-	for _, cand in ipairs(all) do
-		local u = cand.url
-
-		if M.is_valid.url(u) then
-			table.insert(filtered, cand)
-		elseif M.is_valid.repo(u) then
-			table.insert(filtered, cand)
-		elseif M.is_valid.flake(u) then
-			-- Only keep flakes whose prefix is in flake_providers.
-			local prefix = u:match("^([%w._%-]+):")
-			if fp[prefix] then
-				table.insert(filtered, cand)
-			end
-		end
-	end
-
-	all = filtered
-
 	if #all == 0 then
 		vim.notify(
 			"No URL candidates found",
@@ -428,6 +413,7 @@ local function jump_url(direction, use_limit, action, count, validate)
 		end_line = last,
 		scan_fn = M.scan_line_for_urls,
 	})
+
 	local all = candidates.deduplicate_candidates(raw)
 	if #all == 0 then
 		return vim.notify(
