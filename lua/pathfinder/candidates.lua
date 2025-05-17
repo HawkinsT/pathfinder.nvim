@@ -98,7 +98,7 @@ function M.parse_filename_and_linenr(str)
 		local filename, linenr_str = str:match(pat.pattern)
 		if filename and linenr_str then
 			filename = vim.trim(filename)
-			filename = filename:gsub("[.,:;!]+$", "")
+			filename = vim.uri_to_fname(filename):gsub("[.,:;!]+$", "")
 			return filename, tonumber(linenr_str)
 		end
 	end
@@ -363,6 +363,7 @@ local function parse_words_in_segment(
 			local abs_finish_col = start_pos + match_e - 1
 			if not min_col or abs_finish_col >= min_col then
 				if filename and filename ~= "" and linenr_str then
+					filename = vim.uri_to_fname(filename)
 					local matched_text = segment:sub(match_s, match_e)
 					local match_item = {
 						filename = filename,
@@ -499,6 +500,7 @@ function M.scan_line(
 				local abs_finish_col = match_e
 				if not min_col or abs_finish_col >= min_col then
 					if filename and filename ~= "" and linenr_str then
+						filename = vim.uri_to_fname(filename)
 						local candidate = {
 							filename = filename,
 							lnum = lnum,
