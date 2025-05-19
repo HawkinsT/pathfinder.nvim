@@ -508,7 +508,6 @@ function M.scan_line(
 				local abs_finish_col = match_e
 				if not min_col or abs_finish_col >= min_col then
 					if filename and filename ~= "" and linenr_str then
-						filename = vim.uri_to_fname(filename)
 						local candidate = {
 							filename = normalize_filename(filename),
 							lnum = lnum,
