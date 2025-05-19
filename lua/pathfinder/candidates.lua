@@ -372,7 +372,6 @@ local function parse_words_in_segment(
 			local abs_finish_col = start_pos + match_e - 1
 			if not min_col or abs_finish_col >= min_col then
 				if filename and filename ~= "" and linenr_str then
-					filename = vim.uri_to_fname(filename)
 					local matched_text = segment:sub(match_s, match_e)
 					local match_item = {
 						filename = normalize_filename(filename),
