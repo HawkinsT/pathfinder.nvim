@@ -15,6 +15,15 @@ local trailing_patterns = {
 	{ pattern = "^,?%s*line%s+(%d+)" }, -- e.g. ", line 168"
 }
 
+-- If URI, convert to normal file path.
+local function normalize_filename(fname)
+	local ok, local_path = pcall(vim.uri_to_fname, fname)
+	if ok then
+		return local_path
+	end
+	return fname
+end
+
 function M.deduplicate_candidates(candidates)
 	local merged = {}
 	for _, cand in ipairs(candidates) do
@@ -198,7 +207,7 @@ local function create_candidate_from_piece(
 		local filename, linenr = M.parse_filename_and_linenr(filename_str)
 		if filename and filename ~= "" then
 			local candidate = {
-				filename = filename,
+				filename = normalize_filename(filename),
 				lnum = lnum,
 				start_col = cand_start_col,
 				finish = cand_finish_col,
@@ -365,7 +374,7 @@ local function parse_words_in_segment(
 				if filename and filename ~= "" and linenr_str then
 					local matched_text = segment:sub(match_s, match_e)
 					local match_item = {
-						filename = filename,
+						filename = normalize_filename(filename),
 						lnum = lnum,
 						start_col = abs_start_col,
 						finish = abs_finish_col,
@@ -500,7 +509,7 @@ function M.scan_line(
 				if not min_col or abs_finish_col >= min_col then
 					if filename and filename ~= "" and linenr_str then
 						local candidate = {
-							filename = filename,
+							filename = normalize_filename(filename),
 							lnum = lnum,
 							start_col = abs_start_col,
 							finish = abs_finish_col,
