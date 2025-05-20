@@ -137,7 +137,7 @@ local function select_file(is_gF)
 				if not is_gF then
 					cand.line_nr_spans = nil
 				end
-				if not config.config.use_column_numbers then
+				if not (is_gF and config.config.use_column_numbers) then
 					cand.col_nr_spans = nil
 				end
 				visual_select.highlight_candidate(cand, prefix, ns)
