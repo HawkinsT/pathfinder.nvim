@@ -8,6 +8,7 @@ function M.set_default_highlights()
 	local shared_highlights = {
 		{ "PathfinderHighlight", { fg = "#DDDDDD", bg = "none" } },
 		{ "PathfinderNumberHighlight", { fg = "#00FF00", bg = "none" } },
+		{ "PathfinderColumnHighlight", { fg = "#FFFF00", bg = "none" } },
 		{ "PathfinderDim", { fg = "#808080", bg = "none" } },
 		{ "PathfinderNextKey", { fg = "#FF00FF", bg = "none" } },
 		{ "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" } },
@@ -23,13 +24,25 @@ function M.set_default_highlights()
 	end
 end
 
+local function highlight_spans(buf, ns, spans, hl_group)
+	if not spans then
+		return
+	end
+	for _, span in ipairs(spans) do
+		vim.api.nvim_buf_set_extmark(buf, ns, span.lnum - 1, span.start_col, {
+			hl_group = hl_group,
+			end_col = span.finish_col + 1,
+			priority = 10001,
+		})
+	end
+end
+
 function M.highlight_candidate(candidate, input_prefix, ns)
 	local buf = candidate.buf_nr
 	local label = candidate.label or ""
 	local is_match = label:sub(1, #input_prefix) == input_prefix
 
 	local hl_group = is_match and "PathfinderHighlight" or "PathfinderDim"
-	local priority = is_match and 10001 or 10000
 
 	-- Build virt_text on matches.
 	local leftover = label:sub(#input_prefix + 1)
@@ -45,7 +58,7 @@ function M.highlight_candidate(candidate, input_prefix, ns)
 		local opts = {
 			hl_group = hl_group,
 			end_col = col_end,
-			priority = priority,
+			priority = 10001,
 		}
 		if with_text and #virt_text > 0 then
 			opts.virt_text = virt_text
@@ -64,21 +77,19 @@ function M.highlight_candidate(candidate, input_prefix, ns)
 		)
 	end
 
-	-- Line‐number spans.
-	if is_match and candidate.line_nr_spans then
-		for _, span in ipairs(candidate.line_nr_spans) do
-			vim.api.nvim_buf_set_extmark(
-				buf,
-				ns,
-				span.lnum - 1,
-				span.start_col,
-				{
-					hl_group = "PathfinderNumberHighlight",
-					end_col = span.finish_col + 1,
-					priority = 10001,
-				}
-			)
-		end
+	if is_match then
+		highlight_spans(
+			buf,
+			ns,
+			candidate.line_nr_spans,
+			"PathfinderNumberHighlight"
+		)
+		highlight_spans(
+			buf,
+			ns,
+			candidate.col_nr_spans,
+			"PathfinderColumnHighlight"
+		)
 	end
 end
 
@@ -207,7 +218,7 @@ local function update_highlights(
 					end_col = 0, -- anchor at first col
 					hl_group = "PathfinderDim",
 					hl_eol = true, -- fill to end of screen‐line
-					priority = 10000,
+					priority = 10001,
 				})
 			end)
 		end

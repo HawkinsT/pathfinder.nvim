@@ -6,12 +6,15 @@ local config = require("pathfinder.config")
 local utils = require("pathfinder.utils")
 
 local patterns = {
-	{ pattern = "(%S-)%s*[%s,:@%(]%s*(%d+)" },
-	{ pattern = "(%S-)%s*[%s,:@%(]line%s*(%d+)" },
-	{ pattern = "(%S-)%s*[%s,:@%(]on%s*line%s*(%d+)" },
+	{ pattern = "(%S-)%s*[%s,:@%(]%s*(%d+)%s*[,:]?%s*(%d*)" },
+	{ pattern = "(%S-)%s*[,:@%(]?%s*line%s*(%d+)[,:]?%s*column%s*(%d*)" },
+	{ pattern = "(%S-)%s*[,:@%(]?%s*line%s*(%d+)" },
+	{ pattern = "(%S-)%s*[,:@%(]?%s*on%s*line%s*(%d+)[,:]?%s*column%s*(%d*)" },
+	{ pattern = "(%S-)%s*[,:@%(]?%s*on%s*line%s*(%d+)" },
 }
 
 local trailing_patterns = {
+	{ pattern = "^,?%s*line%s+(%d+)[,:]?%s*column%s*(%d*)" }, -- e.g. ", line 168, column 10"
 	{ pattern = "^,?%s*line%s+(%d+)" }, -- e.g. ", line 168"
 }
 
@@ -43,6 +46,10 @@ function M.deduplicate_candidates(candidates)
 					if not existing.linenr and cand.linenr then
 						existing.linenr = cand.linenr
 						existing.line_nr_spans = cand.line_nr_spans
+					end
+					if not existing.colnr and cand.colnr then
+						existing.colnr = cand.colnr
+						existing.col_nr_spans = cand.col_nr_spans
 					end
 					-- Update finish and spans if this candidate covers a larger region.
 					if cand.finish > existing.finish then
@@ -92,9 +99,9 @@ end
 
 local function parse_trailing_line_number(str)
 	for _, pat in ipairs(trailing_patterns) do
-		local match_s, match_e, line_str = str:find(pat.pattern)
+		local match_s, match_e, line_str, column_str = str:find(pat.pattern)
 		if match_s then
-			return tonumber(line_str), match_e
+			return tonumber(line_str), tonumber(column_str), match_e
 		end
 	end
 	return nil, nil
@@ -104,16 +111,18 @@ function M.parse_filename_and_linenr(str)
 	str = str:gsub("\\ ", " ")
 
 	for _, pat in ipairs(patterns) do
-		local filename, linenr_str = str:match(pat.pattern)
+		local filename, linenr_str, colnr_str = str:match(pat.pattern)
 		if filename and linenr_str then
-			filename = vim.trim(filename)
-			filename = filename:gsub("[.,:;!]+$", "")
-			return filename, tonumber(linenr_str)
+			-- clean trailing punctuation
+			filename = vim.trim(filename):gsub("[.,:;!]+$", "")
+			local ln = tonumber(linenr_str)
+			local col = (colnr_str ~= "") and tonumber(colnr_str) or nil
+			return filename, ln, col
 		end
 	end
 	-- If no match, return the trimmed string without line number.
 	local cleaned = str:gsub("[.,:;!]+$", "")
-	return vim.trim(cleaned), nil
+	return vim.trim(cleaned), nil, nil
 end
 
 local function find_next_opening(line, start_pos, openings)
@@ -204,7 +213,8 @@ local function create_candidate_from_piece(
 		+ escaped_space_count
 
 	if not min_col or cand_finish_col >= min_col then
-		local filename, linenr = M.parse_filename_and_linenr(filename_str)
+		local filename, linenr, colnr =
+			M.parse_filename_and_linenr(filename_str)
 		if filename and filename ~= "" then
 			local candidate = {
 				filename = normalize_filename(filename),
@@ -212,6 +222,7 @@ local function create_candidate_from_piece(
 				start_col = cand_start_col,
 				finish = cand_finish_col,
 				linenr = linenr,
+				colnr = colnr,
 				escaped_space_count = escaped_space_count,
 			}
 			candidate.spans = M.calculate_spans(
@@ -246,6 +257,17 @@ local function create_candidate_from_piece(
 						physical_lines,
 						lnum
 					)
+				end
+			end
+			if colnr then
+				local cstr = tostring(colnr)
+				local idx = filename_str:find(":" .. cstr, 1, true)
+					or filename_str:find(cstr, 1, true)
+				if idx then
+					local abs_s = cand_start_col + idx - 1
+					local abs_e = abs_s + #cstr - 1
+					candidate.col_nr_spans =
+						M.calculate_spans(abs_s, abs_e, physical_lines, lnum)
 				end
 			end
 			return candidate
@@ -363,7 +385,7 @@ local function parse_words_in_segment(
 	for _, pat in ipairs(patterns) do
 		local search_offset = 1
 		while search_offset <= #segment do
-			local match_s, match_e, filename, linenr_str =
+			local match_s, match_e, filename, linenr_str, colnr_str =
 				segment:find(pat.pattern, search_offset)
 			if not match_s then
 				break
@@ -379,6 +401,7 @@ local function parse_words_in_segment(
 						start_col = abs_start_col,
 						finish = abs_finish_col,
 						linenr = tonumber(linenr_str),
+						colnr = tonumber(colnr_str),
 					}
 					local file_sub_start = matched_text:find(filename, 1, true)
 					if file_sub_start then
@@ -407,6 +430,20 @@ local function parse_words_in_segment(
 								physical_lines,
 								lnum
 							)
+						end
+					end
+
+					if colnr_str then
+						local col_sub_start =
+							matched_text:find(colnr_str, 1, true)
+						if col_sub_start then
+							local cs = abs_start_col
+								+ col_sub_start
+								- 2
+								+ #linenr_str
+							local ce = cs + #colnr_str - 1
+							match_item.col_nr_spans =
+								M.calculate_spans(cs, ce, physical_lines, lnum)
 						end
 					end
 					table.insert(structured_matches, match_item)
@@ -499,7 +536,7 @@ function M.scan_line(
 		for _, pat in ipairs(patterns) do
 			local search_offset = 1
 			while search_offset <= #line do
-				local match_s, match_e, filename, linenr_str =
+				local match_s, match_e, filename, linenr_str, colnr_str =
 					line:find(pat.pattern, search_offset)
 				if not match_s then
 					break
@@ -517,6 +554,22 @@ function M.scan_line(
 							order = order + 1,
 							type = "structured",
 						}
+						if colnr_str then
+							candidate.colnr = tonumber(colnr_str)
+							local mtxt = line:sub(match_s, match_e)
+							local pos = mtxt:find(":" .. colnr_str, 1, true)
+								or mtxt:find(colnr_str, 1, true)
+							if pos then
+								local s = match_s + pos - 2 + #linenr_str
+								local e = s + #colnr_str - 1
+								candidate.col_nr_spans = M.calculate_spans(
+									s,
+									e,
+									physical_lines,
+									lnum
+								)
+							end
+						end
 						-- Calculate spans for the entire match:
 						candidate.spans = M.calculate_spans(
 							abs_start_col,
@@ -630,11 +683,12 @@ function M.scan_line(
 
 					-- Handle trailing line numbers.
 					local trailing_text = line:sub(close_pos + #closing)
-					local line_number, consumed =
+					local line_number, column_number, consumed =
 						parse_trailing_line_number(trailing_text)
 					if line_number then
 						for _, cand in ipairs(candidates_in_enclosure) do
 							cand.linenr = line_number
+							cand.colnr = column_number
 							local tmatch_s = trailing_text:find("%d+")
 							if tmatch_s then
 								local abs_ln_start = close_pos
@@ -650,6 +704,34 @@ function M.scan_line(
 									physical_lines,
 									lnum
 								)
+							end
+
+							if column_number then
+								-- find end of the line‐number match
+								local _, line_match_end =
+									trailing_text:find("%d+")
+								-- now find the next number (the column)
+								local col_match_s, col_match_e =
+									trailing_text:find(
+										"(%d+)",
+										line_match_end + 1
+									)
+								if col_match_s then
+									local abs_col_start = close_pos
+										+ #closing
+										+ col_match_s
+										- 1
+									local abs_col_end = close_pos
+										+ #closing
+										+ col_match_e
+										- 1
+									cand.col_nr_spans = M.calculate_spans(
+										abs_col_start,
+										abs_col_end,
+										physical_lines,
+										lnum
+									)
+								end
 							end
 						end
 						pos = close_pos + #closing + (consumed or 0)

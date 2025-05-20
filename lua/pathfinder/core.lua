@@ -24,6 +24,10 @@ local function try_open_file(valid_cand, is_gF, linenr)
 
 	-- Only set line number if gF specified.
 	local line_arg = is_gF and linenr or nil
+	local col_arg = is_gF
+			and config.config.use_column_numbers
+			and valid_cand.colnr
+		or nil
 
 	if config.config.reuse_existing_window then
 		-- Check all windows in all tabs for if the file's already open.
@@ -37,7 +41,10 @@ local function try_open_file(valid_cand, is_gF, linenr)
 					api.nvim_set_current_tabpage(t)
 					api.nvim_set_current_win(w)
 					if line_arg then
-						api.nvim_win_set_cursor(w, { line_arg, 0 })
+						api.nvim_win_set_cursor(w, {
+							line_arg,
+							(col_arg or 1) - 1,
+						})
 					end
 					return true
 				end
@@ -48,12 +55,15 @@ local function try_open_file(valid_cand, is_gF, linenr)
 	local cmd = config.config.open_mode
 	local file_with_path = fn.fnameescape(open_path)
 	if type(cmd) == "function" then
-		cmd(file_with_path, line_arg)
+		cmd(file_with_path, line_arg, col_arg)
 	else
-		if line_arg then
-			cmd = cmd .. "+" .. line_arg .. " "
-		end
 		vim.cmd(cmd .. " " .. file_with_path)
+		if line_arg then
+			api.nvim_win_set_cursor(0, {
+				line_arg,
+				(col_arg or 1) - 1,
+			})
+		end
 	end
 
 	return true
@@ -127,6 +137,9 @@ local function select_file(is_gF)
 				if not is_gF then
 					cand.line_nr_spans = nil
 				end
+				if not config.config.use_column_numbers then
+					cand.col_nr_spans = nil
+				end
 				visual_select.highlight_candidate(cand, prefix, ns)
 			end
 		end,
@@ -159,8 +172,9 @@ end
 -- Processes files under the cursor, regardless of if unenclosed or not.
 local function process_cursor_file(is_gF, linenr)
 	local cword = fn.expand("<cWORD>")
-	local filename, parsed_ln = candidates.parse_filename_and_linenr(cword)
-	local line_to_use = parsed_ln or linenr
+	local filename, parsed_ln, parsed_col =
+		candidates.parse_filename_and_linenr(cword)
+	parsed_ln = parsed_ln or linenr
 
 	local resolved = require("pathfinder.utils").resolve_file(filename)
 	if not require("pathfinder.utils").is_valid_file(resolved) then
@@ -168,9 +182,9 @@ local function process_cursor_file(is_gF, linenr)
 	end
 
 	return try_open_file(
-		{ open_path = resolved, linenr = line_to_use },
+		{ open_path = resolved, linenr = parsed_ln, colnr = parsed_col },
 		is_gF,
-		line_to_use
+		parsed_ln
 	)
 end
 
@@ -264,6 +278,11 @@ local function custom_gf(is_gF, count)
 					linenr = (nextfile and user_count > 0 and user_count)
 						or c.linenr
 						or 1
+				end
+				if not config.config.use_column_numbers then
+					c.colnr = nil
+				elseif is_gF and user_count > 0 then
+					c.colnr = nil
 				end
 				try_open_file(c, is_gF, linenr)
 			elseif #valids == 0 then

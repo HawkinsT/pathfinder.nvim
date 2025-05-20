@@ -6,6 +6,7 @@ local default_config = {
 	-- Search behaviour:
 	forward_limit = -1,
 	scan_unenclosed_words = true,
+	use_column_numbers = true,
 	open_mode = "edit",
 	reuse_existing_window = true,
 	gF_count_behaviour = "nextfile",
