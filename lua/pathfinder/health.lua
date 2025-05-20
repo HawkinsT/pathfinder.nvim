@@ -16,7 +16,7 @@ function M.check()
 
 	-- Check for /proc if on native Windows (not WSL).
 	if vim.fn.has("win32") == 1 and vim.fn.has("wsl") == 0 then
-		local stat = vim.loop.fs_stat("/proc/version")
+		local stat = vim.uv.fs_stat("/proc/version")
 		if stat then
 			vim.health.ok("`/proc` is available")
 		else

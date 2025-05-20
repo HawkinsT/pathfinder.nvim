@@ -3,19 +3,19 @@ local M = {}
 local vim = vim
 local api = vim.api
 local fn = vim.fn
-local uv = vim.uv or vim.loop
 
 local config = require("pathfinder.config")
 
 local function is_dir(path)
-	local ok, stat = pcall(uv.fs_stat, path)
+	local ok, stat = pcall(vim.uv.fs_stat, path)
 	return ok and stat and stat.type == "directory"
 end
 
 -- CWD check for Linux (or WSL/Cygwin) using /proc filesystem.
 local function try_proc(pid)
 	local proc = "/proc/" .. pid .. "/cwd"
-	local cwd = uv.fs_realpath and uv.fs_realpath(proc) or fn.resolve(proc)
+	local cwd = vim.uv.fs_realpath and vim.uv.fs_realpath(proc)
+		or fn.resolve(proc)
 	if cwd and is_dir(cwd) then
 		return cwd
 	end
@@ -38,7 +38,7 @@ end
 
 -- CWD check for BSD variants (if lsof fails): use procstat (FreeBSD) or fstat (others).
 local function try_bsd(pid)
-	local osname = uv.os_uname().sysname
+	local osname = vim.uv.os_uname().sysname
 	local cmd = (osname == "FreeBSD") and { "procstat", "-f", pid }
 		or { "fstat", "-p", pid }
 
@@ -93,7 +93,7 @@ function M.is_valid_file(filename)
 	if not filename or filename == "" then
 		return false
 	end
-	local stat = uv.fs_stat(filename)
+	local stat = vim.uv.fs_stat(filename)
 	return (stat and stat.type == "file") or false
 end
 
