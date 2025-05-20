@@ -1,5 +1,5 @@
 *pathfinder.txt*		       Enhanced file and URL search for Neovim
-						      Last change: 2025 May 13
+						      Last change: 2025 May 20
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
@@ -72,13 +72,15 @@ text (|scan_unenclosed_words|) and per-filetype enclosing characters
 `[count]gF` usage is similar to `gf`, however its default behaviour is to open
 the next file after the cursor, placing the cursor at the count'th line. It
 will also attempt to open a file while placing the cursor at a specific line
-if this is specified after the file names.
+and column (if `use_column_numbers` is `true`) if this is specified after the
+file names.
 
 Examples:
-	eval.c:10 ~
+	eval.c:10:10 ~
 	eval.c @ 20 ~
 	eval.c (30) ~
 	eval.c 40 ~
+	eval.c on line 50, column 20 ~
 
 If multiple files exist with the same name but different extension (where the
 extension is not specified explicitly), a prompt will ask which to open. This
@@ -162,6 +164,7 @@ highlight groups, which may be overridden:
     vim.api.nvim_set_hl(0, "PathfinderDim",	        { fg = "#808080", bg = "none" })
     vim.api.nvim_set_hl(0, "PathfinderHighlight",       { fg = "#DDDDDD", bg = "none" })
     vim.api.nvim_set_hl(0, "PathfinderNumberHighlight", { fg = "#00FF00", bg = "none" })
+    vim.api.nvim_set_hl(0, "PathfinderColumnHighlight", { fg = "#FFFF00", bg = "none" })
     vim.api.nvim_set_hl(0, "PathfinderNextKey",	        { fg = "#FF00FF", bg = "none" })
     vim.api.nvim_set_hl(0, "PathfinderFutureKeys",      { fg = "#BB00AA", bg = "none" })
 <
@@ -197,6 +200,14 @@ Default: `true` (boolean)
     files. The file candidate under the cursor isn't affected by this setting
     and may be plain text regardless.
 
+					       *pathfinder-use_column_numbers*
+use_column_numbers ~
+Default: `true` (boolean)
+
+    If `true`, `select_file`, `select_file_line`, and `gF` (if no count is
+    supplied), will also place the cursor at an optional column number if
+    found after the line number.
+
 							*pathfinder-open_mode*
 open_mode ~
 Default: `"edit"` (string|function)
@@ -207,10 +218,11 @@ Default: `"edit"` (string|function)
         Pathfinder will run:  
           :{open_mode} [+<line>] <filepath>
 
-      - `Function` (filepath: string, linenr?: integer): receives the escaped
-	absolute path and an optional line number (nil if not supplied). You
-	may use this to implement custom opening logic (notifications,
-	external tools, etc).
+      - `Function` (filepath: string, linenr?: integer, colnr?: integer):
+	receives the escaped absolute path and optional line and column
+	numbers (nil if not supplied). You may use this to implement custom
+	opening logic (notifications, external tools, etc). Column number
+	will always be nil if `use_column_numbers` is false.
 
 					    *pathfinder-reuse_existing_window*
 reuse_existing_window ~

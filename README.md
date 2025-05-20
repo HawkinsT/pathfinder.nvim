@@ -85,6 +85,7 @@ require('pathfinder').setup({
 	-- Search behaviour
 	forward_limit = -1, -- Search the entire visible buffer
 	scan_unenclosed_words = true, -- Include plain-text (non-delimited) file paths
+	use_column_numbers = true, -- Move the cursor to both a specified line and column (if supplied)
 	open_mode = "edit", -- Open files in the current buffer (:edit), accepts string or function
     reuse_existing_window = true, -- If file is already open, go to its active window (don't reopen)
 	gF_count_behaviour = "nextfile", -- [count]gF will open the next file at line `count`
@@ -145,6 +146,7 @@ The colour scheme used by select_file() may be changed using the following highl
 vim.api.nvim_set_hl(0, "PathfinderDim", { fg = "#808080", bg = "none" })
 vim.api.nvim_set_hl(0, "PathfinderHighlight", { fg = "#DDDDDD", bg = "none" })
 vim.api.nvim_set_hl(0, "PathfinderNumberHighlight", { fg = "#00FF00", bg = "none" })
+vim.api.nvim_set_hl(0, "PathfinderColumnHighlight", { fg = "#FFFF00", bg = "none" })
 vim.api.nvim_set_hl(0, "PathfinderNextKey", { fg = "#FF00FF", bg = "none" })
 vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
 
