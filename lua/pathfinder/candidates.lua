@@ -6,7 +6,7 @@ local config = require("pathfinder.config")
 local utils = require("pathfinder.utils")
 
 local patterns = {
-	{ pattern = "(%S-)%s*[%s,:@%(]%s*(%d+)%s*[,:]?%s*(%d*)" },
+	{ pattern = "(%S-)%s*[,:@%(]%s*(%d+)%s*[,:]?%s*(%d*)" },
 	{ pattern = "(%S-)%s*[,:@%(]?%s*line%s*(%d+)[,:]?%s*column%s*(%d*)" },
 	{ pattern = "(%S-)%s*[,:@%(]?%s*line%s*(%d+)" },
 	{ pattern = "(%S-)%s*[,:@%(]?%s*on%s*line%s*(%d+)[,:]?%s*column%s*(%d*)" },
