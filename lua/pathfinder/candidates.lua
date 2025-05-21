@@ -135,13 +135,29 @@ function M.parse_filename_and_position(str)
 end
 
 -- Find the next opening delimiter in a line from given starting position.
+-- Don't treat ( or [ as enclosures if they’re immediately preceded by an
+-- identifier character (word, underscore, dot, or dash).
+-- This is a bit of a hack doesn't handle all edge cases, but it seems to work
+-- reasonably well; please submit an issue if you this is causing any problems
+-- for your use case, or better yet, a pull request.
 local function find_next_opening(line, start_pos, openings)
 	for pos = start_pos, #line do
 		for _, opening in ipairs(openings) do
 			local opening_len = #opening
+
+			-- Grab the char before this position (if any).
+			local prev = pos > 1 and line:sub(pos - 1, pos - 1) or nil
+
+			-- Is this an opening bracket that's stuck in the middle of a valid
+			-- filename?
+			local is_stuck = (opening == "(" or opening == "[")
+				and prev
+				and prev:match("[%w_%.%-]")
+
 			if
 				pos + opening_len - 1 <= #line
 				and line:sub(pos, pos + opening_len - 1) == opening
+				and not is_stuck
 			then
 				return pos, opening
 			end
