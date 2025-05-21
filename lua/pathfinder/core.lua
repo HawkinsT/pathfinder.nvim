@@ -173,7 +173,7 @@ end
 local function process_cursor_file(is_gF, linenr)
 	local cword = fn.expand("<cWORD>")
 	local filename, parsed_ln, parsed_col =
-		candidates.parse_filename_and_linenr(cword)
+		candidates.parse_filename_and_position(cword)
 	parsed_ln = parsed_ln or linenr
 
 	local resolved = require("pathfinder.utils").resolve_file(filename)
