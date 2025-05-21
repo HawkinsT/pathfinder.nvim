@@ -28,7 +28,7 @@ function M.validate_candidate(candidate, callback, auto_select)
 			utils.is_valid_file(normalized_file_path)
 			and not seen[normalized_file_path]
 		then
-			table.insert(valid_candidates, normalized_file_path)
+			valid_candidates[#valid_candidates + 1] = normalized_file_path
 			seen[normalized_file_path] = true
 			return not (config.config.offer_multiple_options or auto_select)
 		end
@@ -142,7 +142,7 @@ function M.collect_valid_candidates_seq(candidates, count, final_callback)
 				cancelled = true
 			elseif open_path ~= "" then
 				c.open_path = open_path
-				table.insert(valids, c)
+				valids[#valids + 1] = c
 			end
 			if cancelled or #valids == count or i > #candidates then
 				final_callback(valids, cancelled)

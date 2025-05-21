@@ -29,40 +29,39 @@ end
 
 -- Merge duplicate candidates by same file and line.
 function M.deduplicate_candidates(candidates)
+	-- Try to merge candidate into an existing group entry; return true on merge.
+	local function merge_into(group, cand)
+		for _, existing in ipairs(group) do
+			if math.abs(cand.start_col - existing.start_col) <= 2 then
+				-- Fill in missing line/column metadata if available.
+				if not existing.linenr and cand.linenr then
+					existing.linenr = cand.linenr
+					existing.line_nr_spans = cand.line_nr_spans
+				end
+				if not existing.colnr and cand.colnr then
+					existing.colnr = cand.colnr
+					existing.col_nr_spans = cand.col_nr_spans
+				end
+				-- Extend finish/spans if this candidate covers a larger region.
+				if cand.finish > existing.finish then
+					existing.finish = cand.finish
+					existing.spans = cand.spans
+				end
+				return true
+			end
+		end
+		return false
+	end
+
+	-- Group by line number and filename, merging as we go.
 	local merged = {}
 	for _, cand in ipairs(candidates) do
-		-- Group by line number and filename.
 		local key = string.format("%d:%s", cand.lnum, cand.filename)
-		if not merged[key] then
+		local group = merged[key]
+		if not group then
 			merged[key] = { cand }
-		else
-			local group = merged[key]
-			local found = false
-			for _, existing in ipairs(group) do
-				-- Merge candidates if their start columns are nearly identical.
-				if math.abs(cand.start_col - existing.start_col) <= 2 then
-					found = true
-					-- If overlapping candidate lacks a valid line number and
-					-- the other has one, assign it.
-					if not existing.linenr and cand.linenr then
-						existing.linenr = cand.linenr
-						existing.line_nr_spans = cand.line_nr_spans
-					end
-					if not existing.colnr and cand.colnr then
-						existing.colnr = cand.colnr
-						existing.col_nr_spans = cand.col_nr_spans
-					end
-					-- Update finish and spans if this candidate covers a larger region.
-					if cand.finish > existing.finish then
-						existing.finish = cand.finish
-						existing.spans = cand.spans
-					end
-					break
-				end
-			end
-			if not found then
-				table.insert(group, cand)
-			end
+		elseif not merge_into(group, cand) then
+			group[#group + 1] = cand
 		end
 	end
 
@@ -70,7 +69,7 @@ function M.deduplicate_candidates(candidates)
 	local unique = {}
 	for _, group in pairs(merged) do
 		for _, cand in ipairs(group) do
-			table.insert(unique, cand)
+			unique[#unique + 1] = cand
 		end
 	end
 
@@ -78,10 +77,10 @@ function M.deduplicate_candidates(candidates)
 	table.sort(unique, function(a, b)
 		if a.lnum ~= b.lnum then
 			return a.lnum < b.lnum
-		else
-			return a.start_col < b.start_col
 		end
+		return a.start_col < b.start_col
 	end)
+
 	return unique
 end
 
@@ -181,11 +180,11 @@ local function calculate_spans(start, finish, phys_lines, lnum)
 			-- Convert to 0-based columns for Neovim API.
 			local line_start_col = span_start - pl_start
 			local line_finish_col = span_end - pl_start
-			table.insert(spans, {
+			spans[#spans + 1] = {
 				lnum = pl.lnum,
 				start_col = line_start_col,
 				finish_col = line_finish_col,
-			})
+			}
 		end
 	end
 	return spans
@@ -304,19 +303,35 @@ local function process_candidate_string(
 	cfg
 )
 	local results = {}
-	local base = base_offset or start_col
+	base_offset = base_offset or start_col
 	escaped_space_count = escaped_space_count or 0
 
-	local search_pos = 1
-	local found_separator = false
-	while true do
-		local match_start, match_end = raw_str:find("([^,;|]+)", search_pos)
-		if not match_start then
-			break
+	-- Build separator info.
+	local seps = ",;|"
+	local sep_class = "[" .. seps .. "]"
+	local sep_pattern = "([^" .. seps .. "]+)"
+	local anchor_pattern = "()" .. sep_pattern
+
+	-- Fast-path if no separators.
+	if not string.find(raw_str, sep_class) then
+		local candidate = create_candidate_from_piece(
+			raw_str,
+			lnum,
+			base_offset,
+			min_col,
+			escaped_space_count,
+			phys_lines,
+			cfg
+		)
+		if candidate then
+			results[#results + 1] = candidate
 		end
-		found_separator = true
-		local piece = raw_str:sub(match_start, match_end)
-		local piece_start_col = base + (match_start - 1)
+		return results
+	end
+
+	-- Split and get start positions.
+	for match_start, piece in string.gmatch(raw_str, anchor_pattern) do
+		local piece_start_col = base_offset + (match_start - 1)
 		local candidate = create_candidate_from_piece(
 			piece,
 			lnum,
@@ -327,23 +342,7 @@ local function process_candidate_string(
 			cfg
 		)
 		if candidate then
-			table.insert(results, candidate)
-		end
-		search_pos = match_end + 1
-	end
-
-	if not found_separator and search_pos == 1 then
-		local candidate = create_candidate_from_piece(
-			raw_str,
-			lnum,
-			base,
-			min_col,
-			escaped_space_count,
-			phys_lines,
-			cfg
-		)
-		if candidate then
-			table.insert(results, candidate)
+			results[#results + 1] = candidate
 		end
 	end
 
@@ -374,7 +373,7 @@ local function process_word_segment(
 	for _, cand in ipairs(candidates) do
 		current_order = current_order + 1
 		cand.order = current_order
-		table.insert(results, cand)
+		results[#results + 1] = cand
 	end
 	return current_order
 end
@@ -457,6 +456,11 @@ local function collect_structured_matches(
 	phys_lines,
 	order
 )
+	-- Quick bail if no numbers (no chance of filename:line patterns).
+	if not line:sub(start_pos, end_pos):find("%d") then
+		return {}, order
+	end
+
 	local out = {}
 	for _, pat in ipairs(patterns) do
 		local off = start_pos
@@ -478,7 +482,7 @@ local function collect_structured_matches(
 					phys_lines
 				)
 				m.order = order
-				table.insert(out, m)
+				out[#out + 1] = m
 			end
 			off = (e > off) and (e + 1) or (off + 1)
 		end
@@ -527,66 +531,6 @@ local function collect_free_words(
 	return order
 end
 
-local function parse_segment(
-	line,
-	seg_start,
-	seg_end,
-	lnum,
-	min_col,
-	phys_lines,
-	cfg,
-	results,
-	order
-)
-	if seg_start > seg_end then
-		return order
-	end
-
-	local matches
-	matches, order = collect_structured_matches(
-		line,
-		seg_start,
-		seg_end,
-		lnum,
-		min_col,
-		phys_lines,
-		order
-	)
-
-	local cursor = seg_start
-	for _, m in ipairs(matches) do
-		if cursor < m.start_col then
-			order = collect_free_words(
-				line,
-				cursor,
-				m.start_col - 1,
-				lnum,
-				min_col,
-				phys_lines,
-				cfg,
-				results,
-				order
-			)
-		end
-		table.insert(results, m)
-		cursor = m.finish + 1
-	end
-	if cursor <= seg_end then
-		order = collect_free_words(
-			line,
-			cursor,
-			seg_end,
-			lnum,
-			min_col,
-			phys_lines,
-			cfg,
-			results,
-			order
-		)
-	end
-	return order
-end
-
 function M.scan_line(line, lnum, min_col, scan_words, phys_lines, cfg)
 	cfg = cfg or config.config
 	local results = {}
@@ -629,7 +573,7 @@ function M.scan_line(line, lnum, min_col, scan_words, phys_lines, cfg)
 			if not open_pos then
 				-- If no more delimiters, finish by harvesting unenclosed words.
 				if scan_words then
-					order = parse_segment(
+					order = collect_free_words(
 						line,
 						pos,
 						len,
@@ -646,7 +590,7 @@ function M.scan_line(line, lnum, min_col, scan_words, phys_lines, cfg)
 
 			-- Harvest any unenclosed word segment before that opening.
 			if scan_words and open_pos > pos then
-				order = parse_segment(
+				order = collect_free_words(
 					line,
 					pos,
 					open_pos - 1,
@@ -697,7 +641,7 @@ function M.scan_line(line, lnum, min_col, scan_words, phys_lines, cfg)
 						phys_lines,
 						lnum
 					)
-					table.insert(results, c)
+					results[#results + 1] = c
 				end
 
 				-- Handle trailing line/column after enclosure.
@@ -764,7 +708,7 @@ local function collect(
 	for _, cand in ipairs(candidates) do
 		cand.buf_nr = buf_nr
 		cand.win_id = win_id
-		table.insert(collected, cand)
+		collected[#collected + 1] = cand
 	end
 end
 
@@ -776,7 +720,7 @@ local function get_fold_ranges(win_id, start_line, end_line)
 			local fc = vim.fn.foldclosed(l)
 			if fc ~= -1 then
 				local fe = vim.fn.foldclosedend(l)
-				table.insert(ranges, { start = fc, finish = fe })
+				ranges[#ranges + 1] = { start = fc, finish = fe }
 				l = fe + 1
 			else
 				l = l + 1

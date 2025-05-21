@@ -32,7 +32,7 @@ function M.collect(opts)
 		local filtered = {}
 		for _, c in ipairs(all) do
 			if validate_fn(c) then
-				table.insert(filtered, c)
+				filtered[#filtered + 1] = c
 			end
 		end
 		all = filtered

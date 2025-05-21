@@ -48,9 +48,10 @@ function M.highlight_candidate(candidate, input_prefix, ns)
 	local leftover = label:sub(#input_prefix + 1)
 	local virt_text = {}
 	if is_match and #leftover > 0 then
-		table.insert(virt_text, { leftover:sub(1, 1), "PathfinderNextKey" })
+		virt_text[#virt_text + 1] = { leftover:sub(1, 1), "PathfinderNextKey" }
 		if #leftover > 1 then
-			table.insert(virt_text, { leftover:sub(2), "PathfinderFutureKeys" })
+			virt_text[#virt_text + 1] =
+				{ leftover:sub(2), "PathfinderFutureKeys" }
 		end
 	end
 
@@ -101,7 +102,7 @@ function M.get_windows_to_check()
 		local valid_wins = {}
 		for _, win in ipairs(wins) do
 			if vim.api.nvim_win_is_valid(win) then
-				table.insert(valid_wins, win)
+				valid_wins[#valid_wins + 1] = win
 			end
 		end
 		return valid_wins
@@ -178,7 +179,7 @@ local function get_matching_candidates(candidates, input)
 	local matches = {}
 	for _, candidate in ipairs(candidates) do
 		if candidate.label:sub(1, #input) == input then
-			table.insert(matches, candidate)
+			matches[#matches + 1] = candidate
 		end
 	end
 	return matches

@@ -171,9 +171,9 @@ end
 
 -- Processes files under the cursor, regardless of if unenclosed or not.
 local function process_cursor_file(is_gF, linenr)
-	local cword = fn.expand("<cWORD>")
+	local cursor_WORD = fn.expand("<cWORD>")
 	local filename, parsed_ln, parsed_col =
-		candidates.parse_filename_and_position(cword)
+		candidates.parse_filename_and_position(cursor_WORD)
 	parsed_ln = parsed_ln or linenr
 
 	local resolved = require("pathfinder.utils").resolve_file(filename)
@@ -240,10 +240,10 @@ local function custom_gf(is_gF, count)
 					if (c.start_col - 1) <= ccol then
 						cur_cand, ci = c, #fwd + 1
 					end
-					table.insert(fwd, c)
+					fwd[#fwd + 1] = c
 				end
 			else
-				table.insert(fwd, c)
+				fwd[#fwd + 1] = c
 			end
 		end
 		if cur_cand and ci and ci > 1 then
@@ -350,11 +350,11 @@ local function jump_file(direction, count)
 				if
 					c.lnum > curln or (c.lnum == curln and c.start_col > ccol)
 				then
-					table.insert(filtered, c)
+					filtered[#filtered + 1] = c
 				end
 			else
 				if c.lnum < curln or (c.lnum == curln and c.finish < ccol) then
-					table.insert(filtered, c)
+					filtered[#filtered + 1] = c
 				end
 			end
 		end

@@ -172,7 +172,7 @@ local function build_url_candidates(target)
 	-- Convert URL keys into list.
 	local out = {}
 	for u in pairs(set) do
-		table.insert(out, u)
+		out[#out + 1] = u
 	end
 	return out
 end
@@ -296,7 +296,7 @@ function M.hover_description()
 			end)
 		)
 
-		table.insert(processes, proc)
+		processes[#processes + 1] = proc
 	end
 end
 

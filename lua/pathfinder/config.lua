@@ -53,7 +53,7 @@ local function update_cached_openings(cfg)
 	local openings = {}
 	if cfg.enclosure_pairs then
 		for opening, _ in pairs(cfg.enclosure_pairs) do
-			table.insert(openings, opening)
+			openings[#openings + 1] = opening
 		end
 		table.sort(openings, function(a, b)
 			return #a > #b

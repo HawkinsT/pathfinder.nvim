@@ -223,8 +223,8 @@ function M.scan_line_for_urls(line_text, lnum, physical_lines)
 
 		-- Rebuild delimiter cache so only URL pairs are used.
 		local openings = {}
-		for o, _ in pairs(scan_cfg.enclosure_pairs) do
-			table.insert(openings, o)
+		for opening, _ in pairs(scan_cfg.enclosure_pairs) do
+			openings[#openings + 1] = opening
 		end
 		table.sort(openings, function(a, b)
 			return #a > #b
@@ -269,7 +269,7 @@ function M.scan_line_for_urls(line_text, lnum, physical_lines)
 			if not seen[key] then
 				seen[key] = true
 				cand.url = url
-				table.insert(unique, cand)
+				unique[#unique + 1] = cand
 			end
 		end
 	end
@@ -287,7 +287,7 @@ local function filter_valid_candidates(cands, on_done)
 	for _, cand in ipairs(cands) do
 		validate_candidate(cand, function(ok)
 			if ok then
-				table.insert(valids, cand)
+				valids[#valids + 1] = cand
 			end
 			pending = pending - 1
 			if pending == 0 then

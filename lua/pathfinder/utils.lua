@@ -106,7 +106,7 @@ function M.get_combined_suffixes()
 
 	if config.config.associated_filetypes then
 		for _, ext in ipairs(config.config.associated_filetypes) do
-			table.insert(ext_list, ext)
+			ext_list[#ext_list + 1] = ext
 		end
 	end
 
@@ -117,7 +117,7 @@ function M.get_combined_suffixes()
 	end
 	if type(suffixes) == "table" then
 		for _, ext in ipairs(suffixes) do
-			table.insert(ext_list, ext)
+			ext_list[#ext_list + 1] = ext
 		end
 	end
 
@@ -125,7 +125,7 @@ function M.get_combined_suffixes()
 	local unique_exts = {}
 	for _, ext in ipairs(ext_list) do
 		if not seen[ext] then
-			table.insert(unique_exts, ext)
+			unique_exts[#unique_exts + 1] = ext
 			seen[ext] = true
 		end
 	end
