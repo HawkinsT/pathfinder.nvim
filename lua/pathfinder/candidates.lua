@@ -20,9 +20,12 @@ local trailing_patterns = {
 
 -- If URI, convert to normal file path.
 local function normalize_filename(fname)
-	local ok, local_path = pcall(vim.uri_to_fname, fname)
-	if ok then
-		return local_path
+	-- Check for common URI schemes to avoid pcall overhead for non-URIs.
+	if fname:find("^[a-zA-Z][a-zA-Z%d+%-%.]*://") then
+		local ok, local_path = pcall(vim.uri_to_fname, fname)
+		if ok then
+			return local_path
+		end
 	end
 	return fname
 end
@@ -86,19 +89,32 @@ end
 
 -- Remove matching nested delimiters, e.g. [[foo]], returning trimmed text and
 -- offset due to stripped starting characters.
-local function strip_nested_enclosures(str, pairs)
-	local removed = 0
-	while true do
-		local first = str:sub(1, 1)
-		local closing = pairs[first]
-		if closing and str:sub(-#closing) == closing then
-			str = str:sub(1 + #first, -#closing - 1 or nil)
-			removed = removed + #first
+local function strip_nested_enclosures(str, pairs_map)
+	local s, e = 1, #str
+	local removed_count = 0
+	while s <= e do
+		local char_s = str:sub(s, s)
+		local closing_delimiter = pairs_map[char_s]
+		if closing_delimiter then
+			local closing_len = #closing_delimiter
+			if
+				(e - s + 1) >= (1 + closing_len)
+				and str:sub(e - closing_len + 1, e) == closing_delimiter
+			then
+				s = s + 1
+				e = e - closing_len
+				removed_count = removed_count + 1
+			else
+				break
+			end
 		else
 			break
 		end
 	end
-	return str, removed
+	if s > e then
+		return "", removed_count
+	end
+	return str:sub(s, e), removed_count
 end
 
 -- Parse ", line X, column Y" patterns after an enclosure, returning numeric
@@ -117,7 +133,9 @@ end
 -- trailing punctuation.
 function M.parse_filename_and_position(str)
 	-- Unescape escaped spaces.
-	str = str:gsub("\\ ", " ")
+	if str:find("\\ ", 1, true) then
+		str = str:gsub("\\ ", " ")
+	end
 
 	for _, pat in ipairs(patterns) do
 		local filename, linenr_str, colnr_str = str:match(pat.pattern)
@@ -130,8 +148,8 @@ function M.parse_filename_and_position(str)
 		end
 	end
 	-- If no match, return the trimmed string; don't return line/column number.
-	local cleaned = str:gsub("[.,:;!]+$", "")
-	return vim.trim(cleaned), nil, nil
+	local cleaned = vim.trim(str):gsub("[.,:;!]+$", "")
+	return cleaned, nil, nil
 end
 
 -- Find the next opening delimiter in a line from given starting position.
@@ -241,6 +259,7 @@ local function create_candidate_from_piece(
 	local cand_finish_col = cand_start_col
 		+ filename_length
 		+ escaped_space_count
+		- 1
 
 	if not min_col or cand_finish_col >= min_col then
 		local filename, linenr, colnr =
@@ -257,7 +276,7 @@ local function create_candidate_from_piece(
 			}
 			candidate.spans = calculate_spans(
 				cand_start_col,
-				cand_finish_col - 1,
+				cand_finish_col,
 				phys_lines,
 				lnum
 			)
@@ -291,8 +310,7 @@ local function create_candidate_from_piece(
 			end
 			if colnr then
 				local cstr = tostring(colnr)
-				local idx = filename_str:find(":" .. cstr, 1, true)
-					or filename_str:find(cstr, 1, true)
+				local idx = filename_str:find(cstr, 1, true)
 				if idx then
 					local abs_s = cand_start_col + idx - 1
 					local abs_e = abs_s + #cstr - 1
@@ -318,6 +336,20 @@ local function process_candidate_string(
 	phys_lines,
 	cfg
 )
+	-- Bail on overly long candidates (e.g. ext4 has a maximum path length of
+	-- 4096 bytes; it's unreasonable to expect longer paths in most
+	-- circumstances).
+	local max_len = 4096
+	if #raw_str > max_len then
+		return {}
+	end
+
+	-- If the candidate contains no letter, digit, underscore, dot, slash, or
+	-- hyphen we assume it's not a valid file and bail early.
+	if not raw_str:find("[%w%._/\\-]") then
+		return {}
+	end
+
 	local results = {}
 	base_offset = base_offset or start_col
 	escaped_space_count = escaped_space_count or 0
@@ -423,7 +455,7 @@ local function build_match(
 		colnr = tonumber(colnr_str),
 	}
 
-	match.spans = calculate_spans(s_abs, e_abs - 1, phys_lines, lnum)
+	match.spans = calculate_spans(s_abs, e_abs, phys_lines, lnum)
 
 	local slice = line:sub(s_abs, e_abs)
 
@@ -449,9 +481,9 @@ local function build_match(
 
 	-- Column number highlight.
 	if colnr_str and colnr_str ~= "" then
-		local rel = slice:find(colnr_str, 1, true)
-		if rel then
-			local cs = s_abs + rel - 1
+		local rel_col_s = slice:find(colnr_str, 1, true)
+		if rel_col_s then
+			local cs = s_abs + rel_col_s - 1
 			match.col_nr_spans =
 				calculate_spans(cs, cs + #colnr_str - 1, phys_lines, lnum)
 		end
@@ -473,7 +505,8 @@ local function collect_structured_matches(
 	order
 )
 	-- Quick bail if no numbers (no chance of filename:line patterns).
-	if not line:sub(start_pos, end_pos):find("%d") then
+	local idx = line:find("%d", start_pos)
+	if not idx or idx > end_pos then
 		return {}, order
 	end
 
@@ -547,21 +580,123 @@ local function collect_free_words(
 	return order
 end
 
+local function skip_matched_chunks(pos, results)
+	for _, m in ipairs(results) do
+		if pos >= m.start_col and pos <= m.finish then
+			return m.finish + 1, true
+		end
+	end
+	return pos, false
+end
+
+-- Handle trailing line/column numbers after enclosure.
+local function handle_trailing(line, start_pos, candidates, phys_lines, lnum)
+	local tail = line:sub(start_pos)
+	local ln, col, consumed = parse_trailing_line_col_number(tail)
+	if not ln then
+		return 0
+	end
+
+	local ln_str = tostring(ln)
+	local ln_s, ln_e = tail:find(ln_str, 1, true)
+	for _, c in ipairs(candidates) do
+		c.linenr = ln
+		c.colnr = col
+		if ln_s then
+			local abs_s = start_pos + ln_s - 1
+			local abs_e = start_pos + ln_e - 1
+			c.line_nr_spans = calculate_spans(abs_s, abs_e, phys_lines, lnum)
+		end
+		if col then
+			local col_str = tostring(col)
+			local search_start = ln_e and (ln_e + 1) or 1
+			local col_s, col_e = tail:find(col_str, search_start, true)
+			if col_s then
+				local abs_s = start_pos + col_s - 1
+				local abs_e = start_pos + col_e - 1
+				c.col_nr_spans = calculate_spans(abs_s, abs_e, phys_lines, lnum)
+			end
+		end
+	end
+
+	return consumed or 0
+end
+
+-- Process a single enclosure, extracting candidates and updating results.
+local function process_enclosure(
+	line,
+	open_pos,
+	opener,
+	enclosure_map,
+	cfg,
+	lnum,
+	min_col,
+	phys_lines,
+	results,
+	order
+)
+	local closer = enclosure_map[opener]
+	if not closer then
+		return order, open_pos + #opener
+	end
+
+	local content_start = open_pos + #opener
+	local close_pos = find_closing(line, content_start, closer)
+	if not close_pos then
+		return order, content_start
+	end
+
+	local enclosed = line:sub(content_start, close_pos - 1)
+	local esc_spaces = 0
+	if enclosed:find("\\ ", 1, true) then
+		enclosed = enclosed:gsub("\\ ", function()
+			esc_spaces = esc_spaces + 1
+			return " "
+		end)
+	end
+
+	local candidates = process_candidate_string(
+		enclosed,
+		lnum,
+		open_pos,
+		min_col,
+		content_start,
+		esc_spaces,
+		phys_lines,
+		cfg
+	)
+
+	for _, c in ipairs(candidates) do
+		order = order + 1
+		c.order = order
+		c.type = "enclosures"
+		table.insert(results, c)
+	end
+
+	-- Handle optional trailing line/column numbers.
+	local tail_start = close_pos + #closer
+	local consumed =
+		handle_trailing(line, tail_start, candidates, phys_lines, lnum)
+
+	return order, tail_start + consumed
+end
+
 function M.scan_line(line, lnum, min_col, scan_words, phys_lines, cfg)
 	cfg = cfg or config.config
 	local results = {}
 	local order = 0
-	local len = #line
+	local len_line = #line
 	local openings = cfg._cached_openings or {}
-	local enclosure_of = cfg.enclosure_pairs
+	local enclosure_map = cfg.enclosure_pairs
 
-	-- Whole-line structured matches.
+	-- Structured whole-line matches; deals with edge cases, e.g. the line
+	-- number in an enclosure.
 	if scan_words then
 		local struct_matches
 		struct_matches, order = collect_structured_matches(
 			line,
 			1,
-			len,
+			len_line,
 			lnum,
 			min_col,
 			phys_lines,
@@ -572,17 +707,10 @@ function M.scan_line(line, lnum, min_col, scan_words, phys_lines, cfg)
 
 	-- Scan line left-to-right, respecting enclosures.
 	local pos = 1
-	while pos <= len do
-		-- Skip any already‐matched chunks.
-		local skipped = false
-		for _, m in ipairs(results) do
-			if pos >= m.start_col and pos <= m.finish then
-				pos = m.finish + 1
-				skipped = true
-				break
-			end
-		end
-
+	while pos <= len_line do
+		-- Skip previously matched sections.
+		local new_pos, skipped = skip_matched_chunks(pos, results)
+		pos = new_pos
 		if not skipped then
 			-- Try to find the next opening delimiter.
 			local open_pos, opener = find_next_opening(line, pos, openings)
@@ -592,7 +720,7 @@ function M.scan_line(line, lnum, min_col, scan_words, phys_lines, cfg)
 					order = collect_free_words(
 						line,
 						pos,
-						len,
+						len_line,
 						lnum,
 						min_col,
 						phys_lines,
@@ -604,7 +732,7 @@ function M.scan_line(line, lnum, min_col, scan_words, phys_lines, cfg)
 				break
 			end
 
-			-- Harvest any unenclosed word segment before that opening.
+			-- Collect unenclosed words before enclosure.
 			if scan_words and open_pos > pos then
 				order = collect_free_words(
 					line,
@@ -619,84 +747,23 @@ function M.scan_line(line, lnum, min_col, scan_words, phys_lines, cfg)
 				)
 			end
 
-			-- Find matching closer.
-			local closer = enclosure_of[opener]
-			local content_start = open_pos + #opener
-			local close_pos = find_closing(line, content_start, closer)
-			if not close_pos then
-				-- Skip unmatched open enclosure.
-				pos = content_start
-			else
-				-- Process enclosed content.
-				local enclosed = line:sub(content_start, close_pos - 1)
-				local esc_spaces = 0
-				if enclosed:find("\\ ", 1, true) then
-					enclosed = enclosed:gsub("\\ ", function()
-						esc_spaces = esc_spaces + 1
-						return " "
-					end)
-				end
-
-				local cand = process_candidate_string(
-					enclosed,
-					lnum,
-					open_pos,
-					min_col,
-					content_start,
-					esc_spaces,
-					phys_lines,
-					cfg
-				)
-				for _, c in ipairs(cand) do
-					order = order + 1
-					c.order = order
-					c.type = "enclosures"
-					c.spans = calculate_spans(
-						c.start_col,
-						c.finish - 1,
-						phys_lines,
-						lnum
-					)
-					results[#results + 1] = c
-				end
-
-				-- Handle trailing line/column after enclosure.
-				local tail = line:sub(close_pos + #closer)
-				local ln, col, consumed = parse_trailing_line_col_number(tail)
-				if ln then
-					local ln_s, ln_e = tail:find("(%d+)")
-					for _, c in ipairs(cand) do
-						c.linenr = ln
-						c.colnr = col
-						if ln_s and ln_e then
-							local abs_s = close_pos + #closer + ln_s - 1
-							local abs_e = close_pos + #closer + ln_e - 1
-							c.line_nr_spans =
-								calculate_spans(abs_s, abs_e, phys_lines, lnum)
-						end
-						if col then
-							local cs, ce = tail:find("(%d+)", (ln_e or 0) + 1)
-							if cs and ce then
-								local s_abs = close_pos + #closer + cs - 1
-								local e_abs = close_pos + #closer + ce - 1
-								c.col_nr_spans = calculate_spans(
-									s_abs,
-									e_abs,
-									phys_lines,
-									lnum
-								)
-							end
-						end
-					end
-					pos = close_pos + #closer + consumed
-				else
-					pos = close_pos + #closer
-				end
-			end
+			-- Process the enclosure and update position.
+			order, pos = process_enclosure(
+				line,
+				open_pos,
+				opener,
+				enclosure_map,
+				cfg,
+				lnum,
+				min_col,
+				phys_lines,
+				results,
+				order
+			)
 		end
 	end
 
-	-- Final ordering.
+	-- Order matches by the line and column they appear.
 	table.sort(results, function(a, b)
 		if a.lnum ~= b.lnum then
 			return a.lnum < b.lnum
@@ -757,18 +824,18 @@ function M.collect_candidates_in_range(
 	local collected = {}
 
 	-- Process a single logical line (merge hard wraps if terminal buffer).
-	local function process_chunk(line)
+	local function process_chunk(line_num)
 		local text, new_end, phys_lines =
-			utils.get_merged_line(line, end_line, buf_nr, win_id)
-		collect(buf_nr, win_id, scan_fn, text, line, phys_lines, collected)
+			utils.get_merged_line(line_num, end_line, buf_nr, win_id)
+		collect(buf_nr, win_id, scan_fn, text, line_num, phys_lines, collected)
 		return new_end + 1
 	end
 
 	-- Don't skip folded ranges.
 	local function run_flat()
-		local line = start_line
-		while line <= end_line do
-			line = process_chunk(line)
+		local line_iter = start_line
+		while line_iter <= end_line do
+			line_iter = process_chunk(line_iter)
 		end
 	end
 
@@ -779,14 +846,14 @@ function M.collect_candidates_in_range(
 			return a.start < b.start
 		end)
 
-		local idx, line = 1, start_line
-		while line <= end_line do
+		local idx, line_iter = 1, start_line
+		while line_iter <= end_line do
 			local rng = fold_ranges[idx]
-			if rng and line >= rng.start and line <= rng.finish then
-				line = rng.finish + 1
+			if rng and line_iter >= rng.start and line_iter <= rng.finish then
+				line_iter = rng.finish + 1
 				idx = idx + 1
 			else
-				line = process_chunk(line)
+				line_iter = process_chunk(line_iter)
 			end
 		end
 	end
