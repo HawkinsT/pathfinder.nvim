@@ -92,6 +92,7 @@ require('pathfinder').setup({
 	validate_urls = false, -- If true, require all url targets for next/prev_url() to resolve (slow)
 
 	-- File resolution settings
+	max_path_length = 4096, -- The maximum allowed length of any path to be scanned
 	associated_filetypes = {}, -- File extensions that should be tried (also see `suffixesadd`)
     url_providers = { -- List of software forges to try when resolving owner/repo links
 		"https://github.com/%s.git",

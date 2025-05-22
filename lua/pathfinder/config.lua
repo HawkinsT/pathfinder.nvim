@@ -13,6 +13,7 @@ local default_config = {
 	validate_urls = false,
 
 	-- File resolution settings:
+	max_path_length = 4096,
 	associated_filetypes = {},
 	url_providers = {
 		"https://github.com/%s.git",

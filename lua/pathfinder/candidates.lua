@@ -339,7 +339,7 @@ local function process_candidate_string(
 	-- Bail on overly long candidates (e.g. ext4 has a maximum path length of
 	-- 4096 bytes; it's unreasonable to expect longer paths in most
 	-- circumstances).
-	local max_len = 4096
+	local max_len = cfg.max_path_length or 4096
 	if #raw_str > max_len then
 		return {}
 	end
