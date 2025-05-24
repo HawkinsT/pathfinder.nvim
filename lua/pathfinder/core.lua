@@ -210,7 +210,7 @@ local function custom_gf(is_gF, count)
 	end
 
 	local scan_fn = function(line, ln, phys)
-		local minc = (ln == curln) and ccol or nil
+		local minc = (ln == curln) and (ccol + 1) or nil
 		return candidates.scan_line(
 			line,
 			ln,
