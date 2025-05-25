@@ -30,7 +30,7 @@ function M.validate_candidate(candidate, callback, auto_select)
 		then
 			valid_candidates[#valid_candidates + 1] = normalized_file_path
 			seen[normalized_file_path] = true
-			return not (config.config.offer_multiple_options or auto_select)
+			return auto_select or not config.config.offer_multiple_options
 		end
 		return false
 	end
