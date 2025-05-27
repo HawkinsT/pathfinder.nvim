@@ -256,8 +256,19 @@ function M.hover_description()
 	local done = false
 
 	for _, link in ipairs(urls) do
+		local KILOBYTES_TO_DOWNLOAD = 100
+		local bytes_to_download = KILOBYTES_TO_DOWNLOAD * 1024
+		local curl_cmd = {
+			"curl",
+			"--max-time",
+			"5",
+			"-fsL",
+			"--range",
+			string.format("0-%d", bytes_to_download - 1),
+			link,
+		}
 		local proc = vim.system(
-			{ "curl", "--max-time", "5", "-fsL", link },
+			curl_cmd,
 			{
 				text = true, -- capture stdout as a string
 				timeout = 6000, -- hard kill after 6s in case of curl timout issues
