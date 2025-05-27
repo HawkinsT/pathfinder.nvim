@@ -429,10 +429,10 @@ end
 --- Build a structured-match result and highlight exact subspans (filename,
 --- line, column).
 ---@param line string full original line
----@param s_abs number absolute start col (1-based)
----@param e_abs number absolute end col (1-based inclusive)
+---@param s_abs number absolute start column (1-based)
+---@param e_abs number absolute end column (1-based inclusive)
 ---@param lnum number logical line number
----@param filename string matched filename
+---@param filename_str string matched filename
 ---@param linenr_str string matched line digits
 ---@param colnr_str string matched column digits
 ---@param phys_lines table physical-lines for span calc
@@ -441,13 +441,13 @@ local function build_match(
 	s_abs,
 	e_abs,
 	lnum,
-	filename,
+	filename_str,
 	linenr_str,
 	colnr_str,
 	phys_lines
 )
 	local match = {
-		filename = normalize_filename(filename),
+		filename = normalize_filename(filename_str),
 		lnum = lnum,
 		start_col = s_abs,
 		finish = e_abs,
@@ -456,34 +456,41 @@ local function build_match(
 	}
 
 	match.spans = calculate_spans(s_abs, e_abs, phys_lines, lnum)
-
 	local slice = line:sub(s_abs, e_abs)
 
 	-- Filename highlight.
-	do
-		local rel = slice:find(filename, 1, true)
-		if rel then
-			local cs = s_abs + rel - 1
-			match.target_spans =
-				calculate_spans(cs, cs + #filename - 1, phys_lines, lnum)
-		end
+	local fn_rel_s = slice:find(filename_str, 1, true)
+	if fn_rel_s then
+		local cs = s_abs + fn_rel_s - 1
+		match.target_spans =
+			calculate_spans(cs, cs + #filename_str - 1, phys_lines, lnum)
+	else
+		match.target_spans = match.spans
 	end
 
 	-- Line number highlight.
-	if linenr_str and linenr_str ~= "" then
-		local rel = slice:find(linenr_str, 1, true)
-		if rel then
-			local cs = s_abs + rel - 1
+	local ln_rel_s
+	if linenr_str then
+		local search_from = (fn_rel_s and fn_rel_s + #filename_str) or 1
+		ln_rel_s = slice:find(linenr_str, search_from, true)
+		if ln_rel_s then
+			local cs = s_abs + ln_rel_s - 1
 			match.line_nr_spans =
 				calculate_spans(cs, cs + #linenr_str - 1, phys_lines, lnum)
 		end
 	end
 
 	-- Column number highlight.
-	if colnr_str and colnr_str ~= "" then
-		local rel_col_s = slice:find(colnr_str, 1, true)
-		if rel_col_s then
-			local cs = s_abs + rel_col_s - 1
+	if colnr_str then
+		local col_search_from = 1
+		if ln_rel_s then
+			col_search_from = ln_rel_s + #linenr_str
+		elseif fn_rel_s then
+			col_search_from = fn_rel_s + #filename_str
+		end
+		local col_rel_s = slice:find(colnr_str, col_search_from, true)
+		if col_rel_s then
+			local cs = s_abs + col_rel_s - 1
 			match.col_nr_spans =
 				calculate_spans(cs, cs + #colnr_str - 1, phys_lines, lnum)
 		end
