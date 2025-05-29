@@ -208,27 +208,26 @@ local function open_candidate_url(candidate)
 	end
 end
 
-function M.scan_line_for_urls(line_text, lnum, physical_lines)
+function M.scan_line_for_urls(line_text, lnum, physical_lines, base_cfg)
 	-- Strip all ANSI CSI sequences for better terminal handling.
 	local esc = string.char(27)
 	line_text = line_text:gsub(esc .. "%[[%d;]*[ -/]*[@-~]", "")
 
-	--  Use url_enclosure_pairs over enclosure_pairs if available.
-	local scan_cfg = config.config
-	if config.config.url_enclosure_pairs then
-		-- Deep‐clone every config field.
-		scan_cfg = vim.deepcopy(config.config)
-		-- Then override enclosure pairs.
-		scan_cfg.enclosure_pairs = config.config.url_enclosure_pairs
+	-- Use url_enclosure_pairs over enclosure_pairs if available.
+	local scan_cfg = vim.deepcopy(base_cfg)
 
-		-- Rebuild delimiter cache so only URL pairs are used.
+	-- Rebuild delimiter cache so only URL pairs are used (if defined).
+	if scan_cfg.url_enclosure_pairs then
+		scan_cfg.enclosure_pairs = scan_cfg.url_enclosure_pairs
 		local openings = {}
-		for opening, _ in pairs(scan_cfg.enclosure_pairs) do
-			openings[#openings + 1] = opening
+		if scan_cfg.enclosure_pairs then
+			for opening, _ in pairs(scan_cfg.enclosure_pairs) do
+				openings[#openings + 1] = opening
+			end
+			table.sort(openings, function(a, b)
+				return #a > #b
+			end)
 		end
-		table.sort(openings, function(a, b)
-			return #a > #b
-		end)
 		scan_cfg._cached_openings = openings
 	end
 
@@ -308,12 +307,26 @@ function M.select_url()
 			local s = fn.line("w0", win)
 			local e = fn.line("w$", win)
 
+			local scan_fn = function(
+				line_text_iter,
+				lnum_iter,
+				physical_lines_iter
+			)
+				local buffer_specific_cfg = config.get_config_for_buffer(buf)
+				return M.scan_line_for_urls(
+					line_text_iter,
+					lnum_iter,
+					physical_lines_iter,
+					buffer_specific_cfg
+				)
+			end
+
 			local cands = candidates.collect_candidates_in_range(
 				buf,
 				win,
 				s,
 				e,
-				M.scan_line_for_urls,
+				scan_fn,
 				true -- skip folds
 			)
 			vim.list_extend(all, cands)
