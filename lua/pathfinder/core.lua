@@ -13,11 +13,39 @@ local visual_select = require("pathfinder.visual_select")
 
 visual_select.set_default_highlights()
 
-local function try_open_file(valid_cand, is_gF, linenr)
-	local open_path = valid_cand.open_path
-	if not open_path or open_path == "" then
-		return false
+-- Expects absolute line and column numbers (1, 1) which will then be converted:
+-- Rows are 1-indexed and columns are 0-indexed here, because why not...
+local function goto_line_column(window, line_arg, col_arg)
+	local target_line = math.max(1, line_arg)
+	local target_col = (col_arg and col_arg > 0) and (col_arg - 1) or 0
+	pcall(api.nvim_win_set_cursor, window, { target_line, target_col })
+end
+
+-- Check all windows in all tabs for if the specified file's already open and
+-- go to this instance if so.
+local function find_and_goto_existing_window(target_abs_path, line_arg, col_arg)
+	for _, t in ipairs(api.nvim_list_tabpages()) do
+		for _, w in ipairs(api.nvim_tabpage_list_wins(t)) do
+			local buf = api.nvim_win_get_buf(w)
+			local buf_name = api.nvim_buf_get_name(buf)
+			if buf_name and buf_name ~= "" then
+				local buf_abs_path = fn.fnamemodify(buf_name, ":p")
+				if buf_abs_path == target_abs_path then
+					api.nvim_set_current_tabpage(t)
+					api.nvim_set_current_win(w)
+					if line_arg then
+						goto_line_column(w, line_arg, col_arg)
+					end
+					return true -- file already open in some tab/window and switched to
+				end
+			end
+		end
 	end
+	return false -- file not currently open in any tab/window
+end
+
+local function try_open_file(valid_cand, is_gF, linenr)
+	local target_abs_path = valid_cand.open_path
 
 	-- Only set line number if gF specified.
 	local line_arg = is_gF and linenr or nil
@@ -27,39 +55,23 @@ local function try_open_file(valid_cand, is_gF, linenr)
 		or nil
 
 	if config.config.reuse_existing_window then
-		-- Check all windows in all tabs for if the file's already open.
-		for _, t in ipairs(api.nvim_list_tabpages()) do
-			for _, w in ipairs(api.nvim_tabpage_list_wins(t)) do
-				local buf = api.nvim_win_get_buf(w)
-				if
-					fn.fnamemodify(api.nvim_buf_get_name(buf), ":p")
-					== open_path
-				then
-					api.nvim_set_current_tabpage(t)
-					api.nvim_set_current_win(w)
-					if line_arg then
-						api.nvim_win_set_cursor(w, {
-							line_arg,
-							(col_arg or 1) - 1,
-						})
-					end
-					return true
-				end
-			end
+		if
+			find_and_goto_existing_window(target_abs_path, line_arg, col_arg)
+		then
+			return true
 		end
 	end
 
-	local cmd = config.config.open_mode
-	local file_with_path = fn.fnameescape(open_path)
-	if type(cmd) == "function" then
-		cmd(file_with_path, line_arg, col_arg)
+	local open_cmd = config.config.open_mode
+	local escaped_target_path = fn.fnameescape(target_abs_path)
+
+	if type(open_cmd) == "function" then
+		open_cmd(escaped_target_path, line_arg, col_arg)
 	else
-		vim.cmd(cmd .. " " .. file_with_path)
+		vim.cmd(open_cmd .. " " .. escaped_target_path)
+		-- For commands like :edit, set cursor on the current window (0).
 		if line_arg then
-			api.nvim_win_set_cursor(0, {
-				line_arg,
-				(col_arg or 1) - 1,
-			})
+			goto_line_column(0, line_arg, col_arg)
 		end
 	end
 
