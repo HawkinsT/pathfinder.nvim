@@ -24,6 +24,9 @@ function M.set_default_highlights()
 	end
 end
 
+M.HIGHLIGHT_NS = vim.api.nvim_create_namespace("pathfinder_highlight")
+M.DIM_NS = vim.api.nvim_create_namespace("pathfinder_dim")
+
 local function highlight_spans(buf, ns, spans, hl_group)
 	if not spans then
 		return

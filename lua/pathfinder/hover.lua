@@ -4,6 +4,7 @@ local vim = vim
 local fn = vim.fn
 local api = vim.api
 local lsp = vim.lsp.util
+
 local config = require("pathfinder.config")
 local picker = require("pathfinder.picker")
 local url = require("pathfinder.url")

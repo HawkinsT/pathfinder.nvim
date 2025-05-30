@@ -7,14 +7,11 @@ local fn = vim.fn
 local candidates = require("pathfinder.candidates")
 local config = require("pathfinder.config")
 local picker = require("pathfinder.picker")
+local utils = require("pathfinder.utils")
 local validation = require("pathfinder.validation")
 local visual_select = require("pathfinder.visual_select")
-local utils = require("pathfinder.utils")
 
 visual_select.set_default_highlights()
-
-local highlight_ns = api.nvim_create_namespace("pathfinder_highlight")
-local dim_ns = api.nvim_create_namespace("pathfinder_dim")
 
 local function try_open_file(valid_cand, is_gF, linenr)
 	local open_path = valid_cand.open_path
@@ -130,8 +127,8 @@ local function select_file(is_gF)
 	visual_select.assign_labels(all_raw, config.config.selection_keys)
 	visual_select.start_selection_loop(
 		all_raw,
-		highlight_ns,
-		dim_ns,
+		visual_select.HIGHLIGHT_NS,
+		visual_select.DIM_NS,
 		function(cand, prefix, ns)
 			if cand.label:sub(1, #prefix) == prefix then
 				if not is_gF then

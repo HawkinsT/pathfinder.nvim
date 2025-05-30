@@ -4,14 +4,12 @@ local vim = vim
 local api = vim.api
 local fn = vim.fn
 
-local config = require("pathfinder.config")
 local candidates = require("pathfinder.candidates")
+local config = require("pathfinder.config")
 local picker = require("pathfinder.picker")
 local visual_select = require("pathfinder.visual_select")
-visual_select.set_default_highlights()
 
-local highlight_ns = api.nvim_create_namespace("pathfinder_url_highlight")
-local dim_ns = api.nvim_create_namespace("pathfinder_url_dim")
+visual_select.set_default_highlights()
 
 local patterns = {
 	url = "[Hh][Tt][Tt][Pp][Ss]?://[%w%-_.%?%/%%:=&]+",
@@ -297,7 +295,6 @@ local function filter_valid_candidates(cands, on_done)
 end
 
 function M.select_url()
-	local selection_keys = config.config.selection_keys
 	local all = {}
 
 	-- Collect URL candidates.
@@ -355,11 +352,11 @@ function M.select_url()
 			return
 		end
 
-		visual_select.assign_labels(cands, selection_keys)
+		visual_select.assign_labels(cands, config.config.selection_keys)
 		visual_select.start_selection_loop(
 			cands,
-			highlight_ns,
-			dim_ns,
+			visual_select.HIGHLIGHT_NS,
+			visual_select.DIM_NS,
 			visual_select.highlight_candidate,
 			function(sel)
 				open_candidate_url(sel.url)

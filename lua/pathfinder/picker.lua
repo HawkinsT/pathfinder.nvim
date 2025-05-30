@@ -1,7 +1,7 @@
+local M = {}
+
 local api = vim.api
 local candidates = require("pathfinder.candidates")
-
-local M = {}
 
 --- Use collect_candidates_in_range(scan_fn, skip_folds) for each window in
 --- opts.win_ids -> filter via validate_fn (optional) -> deduplicate -> return list
