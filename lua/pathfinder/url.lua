@@ -211,8 +211,9 @@ function M.scan_line_for_urls(line_text, lnum, physical_lines, base_cfg)
 	local esc = string.char(27)
 	line_text = line_text:gsub(esc .. "%[[%d;]*[ -/]*[@-~]", "")
 
-	-- Use url_enclosure_pairs over enclosure_pairs if available.
-	local scan_cfg = vim.deepcopy(base_cfg)
+	-- Use buffer-specific config if available (e.g. for url_enclosure_pairs),
+	-- else use the default config.
+	local scan_cfg = vim.deepcopy(base_cfg or config.config)
 
 	-- Rebuild delimiter cache so only URL pairs are used (if defined).
 	if scan_cfg.url_enclosure_pairs then
