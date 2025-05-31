@@ -222,7 +222,7 @@ local function update_highlights(
 					end_col = 0, -- anchor at first col
 					hl_group = "PathfinderDim",
 					hl_eol = true, -- fill to end of screen‐line
-					priority = 10001,
+					priority = 10000,
 				})
 			end)
 		end
