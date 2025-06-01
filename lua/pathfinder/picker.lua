@@ -3,9 +3,9 @@ local M = {}
 local api = vim.api
 local candidates = require("pathfinder.candidates")
 
---- Use collect_candidates_in_range(scan_fn, skip_folds) for each window in
---- opts.win_ids -> filter via validate_fn (optional) -> deduplicate -> return list
---- opts = { win_ids, buf_of_win, scan_range, scan_fn, skip_folds, validate_fn? }
+-- Use collect_candidates_in_range(scan_fn, skip_folds) for each window in
+-- opts.win_ids -> filter via validate_fn (optional) -> deduplicate -> return list.
+-- opts = { win_ids, buf_of_win, scan_range, scan_fn, skip_folds, validate_fn? }
 function M.collect(opts)
 	local buf = opts.buf
 	local s, e = opts.start_line, opts.end_line

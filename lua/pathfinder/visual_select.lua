@@ -114,7 +114,7 @@ function M.get_windows_to_check()
 	end
 end
 
---- Clears dim/highlight extmarks in all relevant windows.
+-- Clears dim/highlight extmarks in all relevant windows.
 local function clear_extmarks(windows, highlight_ns, dim_ns)
 	local seen_buffers = {}
 	for _, win in ipairs(windows) do
@@ -177,7 +177,7 @@ function M.assign_labels(candidates, selection_keys)
 	end
 end
 
---- Returns the subset of candidates whose labels start with 'input'.
+-- Returns the subset of candidates whose labels start with 'input'.
 local function get_matching_candidates(candidates, input)
 	local matches = {}
 	for _, candidate in ipairs(candidates) do
@@ -188,7 +188,7 @@ local function get_matching_candidates(candidates, input)
 	return matches
 end
 
---- Dims all visible lines, then calls highlight_candidate() for each candidate.
+-- Dims all visible lines, then calls highlight_candidate() for each candidate.
 local function update_highlights(
 	candidates,
 	input_prefix,

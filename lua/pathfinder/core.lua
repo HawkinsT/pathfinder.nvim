@@ -323,7 +323,7 @@ local function custom_gf(is_gF, count)
 end
 
 --- Jump to the count'th valid file target.
--- Direction: 1 -> next; -1 -> previous.
+-- direction: 1 -> next; -1 -> previous
 local function jump_file(direction, count)
 	count = count or vim.v.count1
 

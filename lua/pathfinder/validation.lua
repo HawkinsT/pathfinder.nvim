@@ -125,8 +125,8 @@ function M.validate_candidate(candidate, callback, auto_select)
 	end
 end
 
---- Collects valid candidates in order. Short-circuits immediately after the
---- count-th valid candidate is found or the user cancels.
+-- Collects valid candidates in order. Short-circuits immediately after the
+-- count-th valid candidate is found or the user cancels.
 function M.collect_valid_candidates_seq(candidates, count, final_callback)
 	local valids = {}
 	local cancelled = false
