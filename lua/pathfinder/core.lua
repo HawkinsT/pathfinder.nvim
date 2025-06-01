@@ -45,7 +45,7 @@ local function find_and_goto_existing_window(target_abs_path, line_arg, col_arg)
 end
 
 local function try_open_file(valid_cand, is_gF, linenr)
-	local target_abs_path = valid_cand.open_path
+	local target_abs_path = vim.fn.fnamemodify(valid_cand.open_path, ":p")
 
 	-- Only set line number if gF specified.
 	local line_arg = is_gF and linenr or nil
