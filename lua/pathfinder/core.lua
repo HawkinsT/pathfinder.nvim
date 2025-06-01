@@ -179,21 +179,32 @@ local function select_file(is_gF)
 end
 
 -- Processes files under the cursor, regardless of if unenclosed or not.
-local function process_cursor_file(is_gF, linenr)
+local function process_cursor_file(is_gF, count)
 	local cursor_WORD = fn.expand("<cWORD>")
 	local filename, parsed_ln, parsed_col =
 		candidates.parse_filename_and_position(cursor_WORD)
-	parsed_ln = parsed_ln or linenr
 
-	local resolved = require("pathfinder.utils").resolve_file(filename)
-	if not require("pathfinder.utils").is_valid_file(resolved) then
+	local linenr = parsed_ln
+
+	-- Override buffer line number if count specified and gF behaviour is set
+	-- to `nextfile`.
+	if
+		is_gF
+		and config.config.gF_count_behaviour == "nextfile"
+		and count > 0
+	then
+		linenr = count
+	end
+
+	local resolved = utils.resolve_file(filename)
+	if not utils.is_valid_file(resolved) then
 		return false
 	end
 
 	return try_open_file(
-		{ open_path = resolved, linenr = parsed_ln, colnr = parsed_col },
+		{ open_path = resolved, linenr = linenr, colnr = parsed_col },
 		is_gF,
-		parsed_ln
+		linenr
 	)
 end
 
