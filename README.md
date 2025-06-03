@@ -68,7 +68,7 @@ If multiple files match (e.g. `eval.c` and `eval.h`), Pathfinder prompts you to 
 
 The new file/URL navigation commands: `]f`, `[f`, `]u`, and `[u`, are also provided, which optionally accept a count.
 
-For a more visual workflow, you may use the `select_file()`, `select_file_line()`, and `select_url()` functions, mapped to `<leader>gf`, `leader<gF>`, and `leader<gx>` by default; inspired by the likes of [Hop](https://github.com/smoka7/hop.nvim).
+For a more visual workflow, you may use the `select_file()`, `select_file_line()`, and `select_url()` functions, mapped to `<leader>gf`, `<leader>gF`, and `<leader>gx` by default; inspired by the likes of [Hop](https://github.com/smoka7/hop.nvim).
 
 This displays all visible files or web links buffer or across all visible windows, letting you pick one with minimal key presses.
 
