@@ -421,8 +421,8 @@ local function jump_url(direction, use_limit, action, count, validate)
 
 	local buf = api.nvim_get_current_buf()
 	local cursor_pos = api.nvim_win_get_cursor(0)
-	local curln = cursor_pos[1] -- vim.fn.line(".")
-	local ccol = cursor_pos[2] + 1 -- vim.fn.col(".")
+	local cursor_row = cursor_pos[1] -- vim.fn.line(".")
+	local cursor_col = cursor_pos[2] + 1 -- vim.fn.col(".")
 
 	local first, last = get_scan_range(buf, direction, use_limit)
 
@@ -449,8 +449,8 @@ local function jump_url(direction, use_limit, action, count, validate)
 	for _, c in ipairs(all) do
 		-- Filter before cursor for direction == 1, or
 		-- filter after cursor for direction == -1.
-		local dl = (c.lnum - curln) * direction
-		local dc = (c.start_col - ccol) * direction
+		local dl = (c.lnum - cursor_row) * direction
+		local dc = (c.start_col - cursor_col) * direction
 		if
 			dl > 0
 			or (dl == 0 and dc > 0)

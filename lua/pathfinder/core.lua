@@ -44,11 +44,11 @@ local function find_and_goto_existing_window(target_abs_path, line_arg, col_arg)
 	return false -- file not currently open in any tab/window
 end
 
-local function try_open_file(valid_cand, is_gF, linenr)
+local function try_open_file(valid_cand, is_gF)
 	local target_abs_path = vim.fn.fnamemodify(valid_cand.open_path, ":p")
 
 	-- Only set line number if gF specified.
-	local line_arg = is_gF and linenr or nil
+	local line_arg = is_gF and valid_cand.linenr or nil
 	local col_arg = is_gF
 			and config.config.use_column_numbers
 			and valid_cand.colnr
@@ -160,7 +160,7 @@ local function select_file(is_gF)
 						if chosen_path and chosen_path ~= "" then
 							sel.open_path = chosen_path
 							vim.schedule(function()
-								try_open_file(sel, is_gF, sel.linenr)
+								try_open_file(sel, is_gF)
 							end)
 						else
 							vim.notify(
@@ -180,28 +180,101 @@ end
 
 -- Processes files under the cursor, regardless of if unenclosed or not.
 local function process_cursor_file(is_gF, count, nextfile)
-	local cursor_WORD = fn.expand("<cWORD>") -- <cfile> will affect line number recognition
-	local filename, parsed_ln, parsed_col =
-		candidates.parse_filename_and_position(cursor_WORD)
+	local current_buf = api.nvim_get_current_buf()
+	local cursor_pos = api.nvim_win_get_cursor(0)
+	local cursor_row = cursor_pos[1] -- 1-based row
+	local cursor_col0 = cursor_pos[2] -- 0-based column
 
-	local linenr = parsed_ln
+	-- Get the full text of the current logical line.
+	local line_text, _, phys_lines =
+		utils.get_merged_line(cursor_row, cursor_row, current_buf, 0)
 
-	-- Override buffer line number if count specified and gF behaviour is set
-	-- to `nextfile`.
-	if is_gF and nextfile and count > 0 then
-		linenr = count
-	end
-
-	local resolved = utils.resolve_file(filename)
-	if not utils.is_valid_file(resolved) then
+	if not line_text or line_text == "" then
 		return false
 	end
 
-	return try_open_file(
-		{ open_path = resolved, linenr = linenr, colnr = parsed_col },
-		is_gF,
-		linenr
+	local candidates_on_line = candidates.scan_line(
+		line_text,
+		cursor_row,
+		nil, -- scan the whole line, then filter by cursor position
+		true, -- force scanning unenclosed words
+		phys_lines,
+		config.config
 	)
+
+	if #candidates_on_line == 0 then
+		return false
+	end
+
+	local target_candidate = nil
+	local best_fit_span_start = -1 -- used to find the most specific (innermost/latest starting) match
+
+	-- Try to find a candidate whose filename part (target_spans) contains the cursor.
+	for i = 1, #candidates_on_line do
+		local cand = candidates_on_line[i]
+		if cand.lnum == cursor_row and cand.target_spans then
+			for _, span in ipairs(cand.target_spans) do
+				if
+					span.lnum == cursor_row
+					and cursor_col0 >= span.start_col
+					and cursor_col0 <= span.finish_col
+				then
+					if span.start_col > best_fit_span_start then
+						best_fit_span_start = span.start_col
+						target_candidate = cand
+					end
+				end
+			end
+		end
+	end
+
+	-- If no direct hit on a filename part, try a broader check:
+	-- Is the cursor within the entire span of any candidate (filename + line/col specifier)?
+	-- Pick the last one that starts at or before the cursor and ends at or after it.
+	if not target_candidate then
+		local encompassing_candidate = nil
+		for i = 1, #candidates_on_line do
+			local cand = candidates_on_line[i]
+			-- cand.start_col and cand.finish are 1-indexed for the logical line.
+			if
+				cand.lnum == cursor_row
+				and (cursor_col0 + 1) >= cand.start_col
+				and (cursor_col0 + 1) <= cand.finish
+			then
+				encompassing_candidate = cand -- keep the last one that qualifies
+			end
+		end
+		if encompassing_candidate then
+			target_candidate = encompassing_candidate
+		end
+	end
+
+	if not target_candidate then
+		return false
+	end
+
+	if is_gF then
+		if nextfile then
+			if count > 0 then
+				target_candidate.linenr = count
+				target_candidate.colnr = nil
+			end
+		end
+		if not config.config.use_column_numbers then
+			target_candidate.colnr = nil
+		end
+	end
+
+	local resolved_path = utils.resolve_file(target_candidate.filename)
+	if not utils.is_valid_file(resolved_path) then
+		return false
+	end
+
+	return try_open_file({
+		open_path = resolved_path,
+		linenr = target_candidate.linenr,
+		colnr = target_candidate.colnr,
+	}, is_gF)
 end
 
 local function custom_gf(is_gF, count)
@@ -213,15 +286,13 @@ local function custom_gf(is_gF, count)
 	local buf = api.nvim_get_current_buf()
 	local win = api.nvim_get_current_win()
 	local cursor_pos = api.nvim_win_get_cursor(0)
-	local curln = cursor_pos[1] -- vim.fn.line(".")
-	local ccol = cursor_pos[2] -- vim.fn.col(".") - 1
+	local cursor_row = cursor_pos[1] -- vim.fn.line(".")
+	local cursor_col = cursor_pos[2] + 1 -- vim.fn.col(".")
 	local end_ln = api.nvim_buf_line_count(buf) -- vim.fn.line("$")
 
 	if not config.config.scan_unenclosed_words then
 		if
-			(is_gF or (not is_gF and count == 0))
-			and process_cursor_file(is_gF, count)
-			(is_gF or (not is_gF and (count == 0)))
+			(is_gF or (not is_gF and count <= 1))
 			and process_cursor_file(is_gF, count, nextfile)
 		then
 			return
@@ -229,7 +300,7 @@ local function custom_gf(is_gF, count)
 	end
 
 	local scan_fn = function(line, ln, phys)
-		local minc = (ln == curln) and (ccol + 1) or nil
+		local minc = (ln == cursor_row) and cursor_col or nil
 		return candidates.scan_line(
 			line,
 			ln,
@@ -243,7 +314,7 @@ local function custom_gf(is_gF, count)
 	local raw = candidates.collect_candidates_in_range(
 		buf,
 		win,
-		curln,
+		cursor_row,
 		end_ln,
 		scan_fn,
 		false
@@ -254,9 +325,9 @@ local function custom_gf(is_gF, count)
 	if config.config.scan_unenclosed_words then
 		local fwd, cur_cand, ci = {}, nil, nil
 		for _, c in ipairs(raw) do
-			if c.lnum == curln then
-				if (c.finish - 1) >= ccol then
-					if (c.start_col - 1) <= ccol then
+			if c.lnum == cursor_row then
+				if c.finish >= cursor_col then
+					if c.start_col <= cursor_col then
 						cur_cand, ci = c, #fwd + 1
 					end
 					fwd[#fwd + 1] = c
@@ -277,8 +348,8 @@ local function custom_gf(is_gF, count)
 			table.insert(raw, 1, {
 				filename = cf,
 				open_path = res,
-				lnum = curln,
-				finish = ccol,
+				lnum = cursor_row,
+				finish = cursor_col - 1,
 			})
 		end
 	end
@@ -292,9 +363,8 @@ local function custom_gf(is_gF, count)
 			end
 			if #valids >= idx then
 				local c = valids[idx]
-				local linenr = nil
 				if is_gF then
-					linenr = (nextfile and user_count > 0 and user_count)
+					c.linenr = (nextfile and user_count > 0 and user_count)
 						or c.linenr
 						or 1
 				end
@@ -303,7 +373,7 @@ local function custom_gf(is_gF, count)
 				elseif is_gF and user_count > 0 then
 					c.colnr = nil
 				end
-				try_open_file(c, is_gF, linenr)
+				try_open_file(c, is_gF)
 			elseif #valids == 0 then
 				vim.notify(
 					"No valid file targets found",
@@ -329,12 +399,13 @@ local function jump_file(direction, count)
 	local buf = api.nvim_get_current_buf()
 	local win = api.nvim_get_current_win()
 	local cursor_pos = api.nvim_win_get_cursor(0)
-	local curln = cursor_pos[1] -- vim.fn.line(".")
-	local ccol = cursor_pos[2] + 1 -- vim.fn.col(".")
+	local cursor_row = cursor_pos[1] -- vim.fn.line(".")
+	local cursor_col = cursor_pos[2] + 1 -- vim.fn.col(".")
 
 	-- Scan range: current line to top of document or current line to bottom of document
-	local start_ln = (direction == 1) and curln or 1
-	local end_ln = (direction == 1) and api.nvim_buf_line_count(buf) or curln
+	local start_ln = (direction == 1) and cursor_row or 1
+	local end_ln = (direction == 1) and api.nvim_buf_line_count(buf)
+		or cursor_row
 
 	-- Collect and deduplicate raw candidates.
 	local raw = candidates.collect_candidates_in_range(
@@ -360,19 +431,23 @@ local function jump_file(direction, count)
 	local filtered = {}
 	for _, c in ipairs(raw) do
 		local overlaps = (
-			c.lnum == curln
-			and c.start_col <= ccol
-			and c.finish >= ccol
+			c.lnum == cursor_row
+			and c.start_col <= cursor_col
+			and c.finish >= cursor_col
 		)
 		if not overlaps then
 			if direction == 1 then
 				if
-					c.lnum > curln or (c.lnum == curln and c.start_col > ccol)
+					c.lnum > cursor_row
+					or (c.lnum == cursor_row and c.start_col > cursor_col)
 				then
 					filtered[#filtered + 1] = c
 				end
 			else
-				if c.lnum < curln or (c.lnum == curln and c.finish < ccol) then
+				if
+					c.lnum < cursor_row
+					or (c.lnum == cursor_row and c.finish < cursor_col)
+				then
 					filtered[#filtered + 1] = c
 				end
 			end
