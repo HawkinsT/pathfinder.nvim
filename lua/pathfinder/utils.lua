@@ -25,7 +25,7 @@ end
 local function try_lsof(pid)
 	local ok, lines =
 		pcall(fn.systemlist, { "lsof", "-a", "-d", "cwd", "-p", pid, "-Fn" })
-	if not ok or type(lines) ~= table then
+	if not ok or type(lines) ~= "table" then
 		return nil
 	end
 	for _, l in ipairs(lines) do
@@ -93,8 +93,8 @@ function M.is_valid_file(filename)
 	if not filename or filename == "" then
 		return false
 	end
-	local stat = vim.uv.fs_stat(filename)
-	return (stat and stat.type == "file") or false
+	local ok, stat = pcall(vim.uv.fs_stat, filename)
+	return ok and stat and stat.type == "file"
 end
 
 function M.get_combined_suffixes()
