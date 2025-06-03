@@ -179,8 +179,8 @@ local function select_file(is_gF)
 end
 
 -- Processes files under the cursor, regardless of if unenclosed or not.
-local function process_cursor_file(is_gF, count)
-	local cursor_WORD = fn.expand("<cWORD>")
+local function process_cursor_file(is_gF, count, nextfile)
+	local cursor_WORD = fn.expand("<cWORD>") -- <cfile> will affect line number recognition
 	local filename, parsed_ln, parsed_col =
 		candidates.parse_filename_and_position(cursor_WORD)
 
@@ -188,11 +188,7 @@ local function process_cursor_file(is_gF, count)
 
 	-- Override buffer line number if count specified and gF behaviour is set
 	-- to `nextfile`.
-	if
-		is_gF
-		and config.config.gF_count_behaviour == "nextfile"
-		and count > 0
-	then
+	if is_gF and nextfile and count > 0 then
 		linenr = count
 	end
 
@@ -210,7 +206,8 @@ end
 
 local function custom_gf(is_gF, count)
 	local user_count = count
-	local nextfile = config.config.gF_count_behaviour == "nextfile"
+	local nextfile = (config.config.gF_count_behaviour == "nextfile")
+		or (config.config.gF_count_behavior == "nextfile")
 	local idx = (nextfile and is_gF) and 1 or vim.v.count1
 
 	local buf = api.nvim_get_current_buf()
@@ -224,6 +221,8 @@ local function custom_gf(is_gF, count)
 		if
 			(is_gF or (not is_gF and count == 0))
 			and process_cursor_file(is_gF, count)
+			(is_gF or (not is_gF and (count == 0)))
+			and process_cursor_file(is_gF, count, nextfile)
 		then
 			return
 		end
