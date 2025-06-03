@@ -91,30 +91,36 @@ end
 -- offset due to stripped starting characters.
 local function strip_nested_enclosures(str, pairs_map)
 	local s, e = 1, #str
-	local removed_count = 0
+	local removed_start_len = 0
+
 	while s <= e do
-		local char_s = str:sub(s, s)
-		local closing_delimiter = pairs_map[char_s]
-		if closing_delimiter then
-			local closing_len = #closing_delimiter
+		local matched = false
+		for opening, closing in pairs(pairs_map) do
+			local ol, cl = #opening, #closing
+
+			-- Check that the substring is longer than the opening and closing
+			-- delimiter pair and that the pair matches.
 			if
-				(e - s + 1) >= (1 + closing_len)
-				and str:sub(e - closing_len + 1, e) == closing_delimiter
+				(e - s) >= (ol + cl)
+				and str:sub(s, s + ol - 1) == opening
+				and str:sub(e - cl + 1, e) == closing
 			then
-				s = s + 1
-				e = e - closing_len
-				removed_count = removed_count + 1
-			else
+				s = s + ol -- skip whole opener
+				e = e - cl -- drop whole closer
+				removed_start_len = removed_start_len + ol
+				matched = true
 				break
 			end
-		else
+		end
+		if not matched then
 			break
 		end
 	end
+
 	if s > e then
-		return "", removed_count
+		return "", removed_start_len
 	end
-	return str:sub(s, e), removed_count
+	return str:sub(s, e), removed_start_len
 end
 
 -- Parse ", line X, column Y" patterns after an enclosure, returning numeric
@@ -185,11 +191,24 @@ local function find_next_opening(line, start_pos, openings)
 end
 
 -- Find closing delimiter matching opener from given starting position.
-local function find_closing(line, start_pos, closing)
-	local closing_len = #closing
-	for pos = start_pos, #line - closing_len + 1 do
-		if line:sub(pos, pos + closing_len - 1) == closing then
-			return pos
+local function find_closing(line, start_pos, opening, closing)
+	local open_len = #opening
+	local close_len = #closing
+	local depth = 0
+	local pos = start_pos
+	while pos <= #line - math.min(open_len, close_len) + 1 do
+		if open_len > 0 and line:sub(pos, pos + open_len - 1) == opening then
+			depth = depth + 1
+			pos = pos + open_len
+		elseif line:sub(pos, pos + close_len - 1) == closing then
+			if depth == 0 then
+				return pos
+			else
+				depth = depth - 1
+				pos = pos + close_len
+			end
+		else
+			pos = pos + 1
 		end
 	end
 	return nil
@@ -648,7 +667,7 @@ local function process_enclosure(
 	end
 
 	local content_start = open_pos + #opener
-	local close_pos = find_closing(line, content_start, closer)
+	local close_pos = find_closing(line, content_start, opener, closer)
 	if not close_pos then
 		return order, content_start
 	end
