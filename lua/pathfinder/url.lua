@@ -68,7 +68,7 @@ local function check_url_exists(url, callback)
 		},
 		{
 			text = true, -- capture stdout as a string
-			timeout = 6000, -- hard kill after 6s in case of curl timout issues
+			timeout = 6000, -- hard kill after 6s in case of curl timeout issues
 		},
 		vim.schedule_wrap(function(res)
 			-- If success, then check if the status code begins with a 2.

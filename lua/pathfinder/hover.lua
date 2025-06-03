@@ -272,7 +272,7 @@ function M.hover_description()
 			curl_cmd,
 			{
 				text = true, -- capture stdout as a string
-				timeout = 6000, -- hard kill after 6s in case of curl timout issues
+				timeout = 6000, -- hard kill after 6s in case of curl timeout issues
 			},
 			vim.schedule_wrap(function(res)
 				pending = pending - 1
