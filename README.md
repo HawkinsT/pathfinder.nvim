@@ -70,7 +70,7 @@ The new file/URL navigation commands: `]f`, `[f`, `]u`, and `[u`, are also provi
 
 For a more visual workflow, you may use the `select_file()`, `select_file_line()`, and `select_url()` functions, mapped to `<leader>gf`, `<leader>gF`, and `<leader>gx` by default; inspired by the likes of [Hop](https://github.com/smoka7/hop.nvim).
 
-This displays all visible files or web links buffer or across all visible windows, letting you pick one with minimal key presses.
+This displays all visible files or web links in the current buffer or across all visible windows, letting you pick one with minimal key presses.
 
 Pathfinder also provides `hover_description()` (unmapped by default), which will retrieve a description (if available) for any URL or repo under the cursor.
 
