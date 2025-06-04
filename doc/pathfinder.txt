@@ -338,7 +338,7 @@ URL RESOLUTION
 url_enclosure_pairs ~
 Default: `nil` (table)
 
-    If set, then functions as |enclosure_pairs|, superseding this options for
+    If set, then functions as |enclosure_pairs|, superseding this option for
     URL/repo selection targets.
 
 ------------------------------------------------------------------------------

@@ -161,8 +161,8 @@ end
 -- Find the next opening delimiter in a line from given starting position.
 -- Don't treat ( or [ as enclosures if they’re immediately preceded by an
 -- identifier character (word, underscore, dot, or dash).
--- This is a bit of a hack doesn't handle all edge cases, but it seems to work
--- reasonably well; please submit an issue if you this is causing any problems
+-- This is a bit of a hack and doesn't handle all edge cases, but it seems to
+-- work reasonably well; please submit an issue if this is causing any problems
 -- for your use case, or better yet, a pull request.
 local function find_next_opening(line, start_pos, openings)
 	for pos = start_pos, #line do
