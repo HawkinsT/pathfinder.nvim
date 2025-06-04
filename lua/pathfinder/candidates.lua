@@ -196,18 +196,32 @@ local function find_closing(line, start_pos, opening, closing)
 	local close_len = #closing
 	local depth = 0
 	local pos = start_pos
-	while pos <= #line - math.min(open_len, close_len) + 1 do
-		if open_len > 0 and line:sub(pos, pos + open_len - 1) == opening then
-			depth = depth + 1
-			pos = pos + open_len
-		elseif line:sub(pos, pos + close_len - 1) == closing then
-			if depth == 0 then
-				return pos
+
+	-- If opening and closing delimiters are different, use depth counting for nesting.
+	if opening ~= closing then
+		while pos <= #line - math.min(open_len, close_len) + 1 do
+			if
+				open_len > 0
+				and line:sub(pos, pos + open_len - 1) == opening
+			then
+				depth = depth + 1
+				pos = pos + open_len
+			elseif line:sub(pos, pos + close_len - 1) == closing then
+				if depth == 0 then
+					return pos -- found the closing delimiter for the initial open_pos
+				else
+					depth = depth - 1 -- found a closing delimiter for a nested structure
+					pos = pos + close_len
+				end
 			else
-				depth = depth - 1
-				pos = pos + close_len
+				pos = pos + 1
 			end
-		else
+		end
+	else
+		while pos <= #line - close_len + 1 do
+			if line:sub(pos, pos + close_len - 1) == closing then
+				return pos -- found the next occurrence, which is the closing one.
+			end
 			pos = pos + 1
 		end
 	end
