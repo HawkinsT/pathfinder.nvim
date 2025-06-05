@@ -139,27 +139,33 @@ end
 -- trailing punctuation.
 function M.parse_filename_and_position(str)
 	-- Unescape escaped spaces.
-	if str:find("\\ ", 1, true) then
-		str = str:gsub("\\ ", " ")
-	end
+	str = str:gsub("\\ ", " ")
 
 	for _, pat in ipairs(patterns) do
-		local filename, linenr_str, colnr_str = str:match(pat.pattern)
-		if filename and linenr_str then
-			-- Clean up trailing punctuation.
-			filename = vim.trim(filename):gsub("[.,:;!]+$", "")
-			local ln = tonumber(linenr_str)
-			local col = (colnr_str ~= "") and tonumber(colnr_str) or nil
-			return filename, ln, col
+		local s, e, filename, linenr_str, colnr_str = str:find(pat.pattern)
+		if s then
+			local remainder = str:sub(e + 1)
+			-- If the substring following our match contains a valid filename
+			-- character, we assume our match is incomplete (e.g. we matched
+			-- 'main.c(5)' in the string 'main.c(5).o'). In this case, we
+			-- discard this match and continue.
+			if not remainder:find("[%w%._/-]") then
+				-- Clean up trailing punctuation.
+				filename = vim.trim(filename):gsub("[.,:;!]+$", "")
+				local ln = tonumber(linenr_str)
+				local col = (colnr_str ~= "") and tonumber(colnr_str) or nil
+				return filename, ln, col
+			end
 		end
 	end
+
 	-- If no match, return the trimmed string; don't return line/column number.
 	local cleaned = vim.trim(str):gsub("[.,:;!]+$", "")
 	return cleaned, nil, nil
 end
 
 -- Find the next opening delimiter in a line from given starting position.
--- Don't treat ( or [ as enclosures if they’re immediately preceded by an
+-- Don't treat ( or [ as enclosures if they're immediately preceded by an
 -- identifier character (word, underscore, dot, or dash).
 -- This is a bit of a hack and doesn't handle all edge cases, but it seems to
 -- work reasonably well; please submit an issue if this is causing any problems
