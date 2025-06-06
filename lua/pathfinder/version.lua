@@ -1,5 +1,7 @@
 local M = {}
 
+local notify = require("pathfinder.notify")
+
 -- Minimum supported Neovim version.
 local required_version = { major = 0, minor = 10, patch = 0 }
 
@@ -24,15 +26,13 @@ end
 function M.notify(current)
 	local cur_str = fmt(current)
 	local req_str = fmt(required_version)
-	vim.notify(
+	notify.warn(
 		string.format(
 			"pathfinder.nvim: Incompatible Neovim version (%s < %s).\n"
 				.. "Plugin functionality is disabled.",
 			cur_str,
 			req_str
-		),
-		vim.log.levels.WARN,
-		{ title = "pathfinder.nvim" }
+		)
 	)
 end
 

@@ -6,10 +6,16 @@ local fn = vim.fn
 
 local candidates = require("pathfinder.candidates")
 local config = require("pathfinder.config")
+local notify = require("pathfinder.notify")
 local picker = require("pathfinder.picker")
 local visual_select = require("pathfinder.visual_select")
 
 visual_select.set_default_highlights()
+
+local messages = {
+	none = "No URL candidates found",
+	none_valid = "No valid URL candidates found",
+}
 
 local patterns = {
 	url = "[Hh][Tt][Tt][Pp][Ss]?://[%w%-_.%?%/%%:=&]+",
@@ -146,11 +152,7 @@ local function try_open_urls(urls, on_none)
 		if success then
 			done = true
 			vim.schedule(function()
-				vim.notify(
-					'Opening "' .. url .. '"',
-					vim.log.levels.INFO,
-					{ title = "pathfinder.nvim" }
-				)
+				notify.info('Opening "' .. url .. '"')
 				vim.ui.open(url)
 			end)
 		elseif pending == 0 then
@@ -166,44 +168,48 @@ local function try_open_urls(urls, on_none)
 	end
 end
 
+local function try_open_with_error(urls, error_message)
+	try_open_urls(urls, function()
+		notify.error(error_message)
+	end)
+end
+
 local function open_candidate_url(candidate)
-	local function notify_error(message, level)
-		vim.notify(
-			message,
-			level or vim.log.levels.ERROR,
-			{ title = "pathfinder.nvim" }
-		)
-	end
-
-	local function try_open_with_error(urls, error_message, level)
-		try_open_urls(urls, function()
-			notify_error(error_message, level)
-		end)
-	end
-
 	if M.is_valid.url(candidate) then
-		try_open_with_error({ candidate }, "URL not accessible: " .. candidate)
-	elseif M.is_valid.repo(candidate) then
+		local url = { candidate }
+		try_open_with_error(url, "URL not accessible: " .. candidate)
+		return
+	end
+
+	if M.is_valid.repo(candidate) then
 		local provs = config.config.url_providers or {}
-		if #provs == 0 then
-			return notify_error("No URL providers configured.")
+		if vim.tbl_isempty(provs) then
+			return notify.error("No URL providers configured.")
 		end
+
 		local urls = vim.tbl_map(function(fmt)
 			return fmt:format(candidate)
 		end, provs)
+
 		try_open_with_error(urls, "No provider found for " .. candidate)
-	elseif M.is_valid.flake(candidate) then
+		return
+	end
+
+	if M.is_valid.flake(candidate) then
 		local prefix, rest = candidate:match(patterns.flake)
 		local provs = config.config.flake_providers or {}
 		local fmt = provs[prefix]
+
 		if not fmt then
-			return notify_error("Flake not found: " .. prefix)
+			return notify.error("Flake not found: " .. prefix)
 		end
-		local url = fmt:format(rest)
-		try_open_with_error({ url }, "Flake not accessible: " .. url)
-	else
-		notify_error("Not a valid URL, repo, or flake: " .. candidate)
+
+		local url = { fmt:format(rest) }
+		try_open_with_error(url, "Flake not accessible: " .. url)
+		return
 	end
+
+	notify.error("Not a valid URL, repo, or flake: " .. candidate)
 end
 
 function M.scan_line_for_urls(line_text, lnum, physical_lines, base_cfg)
@@ -334,22 +340,14 @@ function M.select_url()
 	all = candidates.deduplicate_candidates(all)
 
 	if #all == 0 then
-		vim.notify(
-			"No URL candidates found",
-			vim.log.levels.INFO,
-			{ title = "pathfinder.nvim" }
-		)
+		notify.info(messages.none)
 		return
 	end
 
 	-- Show the picker once we have a final list.
 	local function launch(cands)
 		if #cands == 0 then
-			vim.notify(
-				"No valid URL candidates found",
-				vim.log.levels.INFO,
-				{ title = "pathfinder.nvim" }
-			)
+			notify.info(messages.none_valid)
 			return
 		end
 
@@ -437,11 +435,7 @@ local function jump_url(direction, use_limit, action, count, validate)
 
 	local all = candidates.deduplicate_candidates(raw)
 	if #all == 0 then
-		return vim.notify(
-			"No URL candidates found",
-			vim.log.levels.INFO,
-			{ title = "pathfinder.nvim" }
-		)
+		return notify.info(messages.none)
 	end
 
 	-- Filter out candidates relative to cursor.
@@ -462,11 +456,7 @@ local function jump_url(direction, use_limit, action, count, validate)
 	if #filtered == 0 then
 		local msg = direction == 1 and "No next URL found"
 			or "No previous URL found"
-		return vim.notify(
-			msg,
-			vim.log.levels.INFO,
-			{ title = "pathfinder.nvim" }
-		)
+		return notify.info(msg)
 	end
 
 	-- Sort according to direction.
@@ -475,10 +465,8 @@ local function jump_url(direction, use_limit, action, count, validate)
 	-- If not validating URLs, return action (jump/open) on specified raw candidate.
 	if not validate then
 		if count > #filtered then
-			vim.notify(
-				string.format("Only %d URL candidates found", #filtered),
-				vim.log.levels.INFO,
-				{ title = "pathfinder.nvim" }
+			notify.info(
+				string.format("Only %d URL candidates found", #filtered)
 			)
 			return
 		end
@@ -501,20 +489,14 @@ local function jump_url(direction, use_limit, action, count, validate)
 				if #valids >= count then
 					action(valids[count].cand)
 				elseif #valids == 0 then
-					return vim.notify(
-						"No URL candidates found",
-						vim.log.levels.INFO,
-						{ title = "pathfinder.nvim" }
-					)
+					return notify.info(messages.none)
 				else
-					vim.notify(
+					notify.info(
 						string.format(
 							"Only %d valid URL candidate%s found",
 							#valids,
 							(#valids ~= 1) and "s" or ""
-						),
-						vim.log.levels.INFO,
-						{ title = "pathfinder.nvim" }
+						)
 					)
 				end
 			end

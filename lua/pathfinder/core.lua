@@ -6,6 +6,7 @@ local fn = vim.fn
 
 local candidates = require("pathfinder.candidates")
 local config = require("pathfinder.config")
+local notify = require("pathfinder.notify")
 local picker = require("pathfinder.picker")
 local utils = require("pathfinder.utils")
 local validation = require("pathfinder.validation")
@@ -128,11 +129,7 @@ local function select_file(is_gF)
 	end
 
 	if #all_raw == 0 then
-		vim.notify(
-			"No valid file targets in visible windows",
-			vim.log.levels.INFO,
-			{ title = "pathfinder.nvim" }
-		)
+		notify.info("No valid file targets in visible windows")
 		return
 	end
 
@@ -163,11 +160,7 @@ local function select_file(is_gF)
 								try_open_file(sel, is_gF)
 							end)
 						else
-							vim.notify(
-								"No file selected or resolved",
-								vim.log.levels.WARN,
-								{ title = "pathfinder.nvim" }
-							)
+							notify.warn("No file selected or resolved")
 						end
 					end,
 					false
@@ -375,16 +368,10 @@ local function custom_gf(is_gF, count)
 				end
 				try_open_file(c, is_gF)
 			elseif #valids == 0 then
-				vim.notify(
-					"No valid file targets found",
-					vim.log.levels.INFO,
-					{ title = "pathfinder.nvim" }
-				)
+				notify.info("No valid file targets found")
 			else
-				vim.notify(
-					"No file target found (" .. #valids .. " available)",
-					vim.log.levels.INFO,
-					{ title = "pathfinder.nvim" }
+				notify.info(
+					"No file target found (" .. #valids .. " available)"
 				)
 			end
 		end
@@ -476,14 +463,12 @@ local function jump_file(direction, count)
 			local c = valids[count]
 			api.nvim_win_set_cursor(0, { c.lnum, c.start_col - 1 })
 		else
-			vim.notify(
+			notify.info(
 				string.format(
 					"No %s file target found (%d available)",
 					direc_name,
 					#valids
-				),
-				vim.log.levels.INFO,
-				{ title = "pathfinder.nvim" }
+				)
 			)
 		end
 	end)

@@ -33,6 +33,7 @@ local vim = vim
 local config = require("pathfinder.config")
 local core = require("pathfinder.core")
 local hover = require("pathfinder.hover")
+local notify = require("pathfinder.notify")
 local url = require("pathfinder.url")
 
 M.setup = config.setup
@@ -59,14 +60,12 @@ local function load_filetype_handlers()
 			local module_name = "pathfinder.ft." .. ft_name
 			local ok, err = pcall(require, module_name)
 			if not ok then
-				vim.notify(
+				notify.warn(
 					string.format(
 						"pathfinder.nvim: Failed to load filetype handler %s: %s",
 						module_name,
 						err
-					),
-					vim.log.levels.WARN,
-					{ title = "pathfinder.nvim" }
+					)
 				)
 			end
 		end

@@ -3,6 +3,7 @@ local M = {}
 local vim = vim
 
 local config = require("pathfinder.config")
+local notify = require("pathfinder.notify")
 
 function M.set_default_highlights()
 	local shared_highlights = {
@@ -250,11 +251,7 @@ local function safe_update_highlights(
 
 		-- Still provide the full error message.
 		local full = debug.traceback(tostring(err), 2)
-		vim.notify(
-			("%s"):format(full),
-			vim.log.levels.ERROR,
-			{ title = "pathfinder.nvim" }
-		)
+		notify.error(("%s"):format(full))
 	end
 
 	xpcall(function()

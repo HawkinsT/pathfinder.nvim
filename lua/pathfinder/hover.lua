@@ -6,6 +6,7 @@ local api = vim.api
 local lsp = vim.lsp.util
 
 local config = require("pathfinder.config")
+local notify = require("pathfinder.notify")
 local picker = require("pathfinder.picker")
 local url = require("pathfinder.url")
 
@@ -201,7 +202,7 @@ local function show_desc(link, desc)
 	-- Below here is all just code for safely mapping escape to close the float.
 	local float_buf = api.nvim_win_get_buf(float_win)
 	local group = api.nvim_create_augroup(
-		"HoverDescCleanup" .. float_win,
+		"PathfinderHoverDescCleanup" .. float_win,
 		{ clear = true }
 	)
 
@@ -298,11 +299,7 @@ function M.hover_description()
 
 				if pending == 0 and not done then
 					vim.schedule(function()
-						vim.notify(
-							"Couldn't retrieve a description",
-							vim.log.levels.INFO,
-							{ title = "pathfinder.nvim" }
-						)
+						notify.info("Couldn't retrieve a description")
 					end)
 				end
 			end)
