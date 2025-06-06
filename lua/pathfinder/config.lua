@@ -1,5 +1,7 @@
 local M = {}
 
+local notify = require("pathfinder.notify")
+
 local vim = vim
 
 local default_config = {
@@ -41,6 +43,7 @@ local default_config = {
 	offer_multiple_options = true,
 	pick_from_all_windows = true,
 	selection_keys = { "a", "s", "d", "f", "j", "k", "l" },
+	tmux_mode = false,
 }
 
 -- Active configuration for the current buffer. This will be modified by filetype overrides.
@@ -61,6 +64,18 @@ local function update_cached_openings(cfg)
 		end)
 	end
 	cfg._cached_openings = openings
+end
+
+function M.set_tmux_mode(enable)
+	default_config.tmux_mode = enable
+	vim.cmd("redrawstatus!")
+	notify.info(
+		"Pathfinder: tmux mode " .. (default_config.tmux_mode and "ON" or "OFF")
+	)
+	return default_config.tmux_mode
+end
+function M.toggle_tmux_mode()
+	return M.set_tmux_mode(not default_config.tmux_mode)
 end
 
 -- Returns the configuration for the specified buffer based on its filetype.

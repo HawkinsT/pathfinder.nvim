@@ -45,7 +45,7 @@ local function find_and_goto_existing_window(target_abs_path, line_arg, col_arg)
 	return false -- file not currently open in any tab/window
 end
 
-local function try_open_file(valid_cand, is_gF)
+function M.try_open_file(valid_cand, is_gF)
 	local target_abs_path = vim.fn.fnamemodify(valid_cand.open_path, ":p")
 
 	-- Only set line number if gF specified.
@@ -80,6 +80,15 @@ local function try_open_file(valid_cand, is_gF)
 end
 
 local function select_file(is_gF)
+	local tmux = require("pathfinder.tmux")
+
+	if tmux.is_enabled() then
+		local tmux_result = tmux.select_file(is_gF)
+		if tmux_result == true then
+			return
+		end
+	end
+
 	local all_raw = {}
 
 	for _, win in ipairs(visual_select.get_windows_to_check()) do
@@ -157,7 +166,7 @@ local function select_file(is_gF)
 						if chosen_path and chosen_path ~= "" then
 							sel.open_path = chosen_path
 							vim.schedule(function()
-								try_open_file(sel, is_gF)
+								M.try_open_file(sel, is_gF)
 							end)
 						else
 							notify.warn("No file selected or resolved")
@@ -263,7 +272,7 @@ local function process_cursor_file(is_gF, count, nextfile)
 		return false
 	end
 
-	return try_open_file({
+	return M.try_open_file({
 		open_path = resolved_path,
 		linenr = target_candidate.linenr,
 		colnr = target_candidate.colnr,
@@ -366,7 +375,7 @@ local function custom_gf(is_gF, count)
 				elseif is_gF and user_count > 0 then
 					c.colnr = nil
 				end
-				try_open_file(c, is_gF)
+				M.try_open_file(c, is_gF)
 			elseif #valids == 0 then
 				notify.info("No valid file targets found")
 			else

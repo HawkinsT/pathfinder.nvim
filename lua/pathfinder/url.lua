@@ -174,7 +174,7 @@ local function try_open_with_error(urls, error_message)
 	end)
 end
 
-local function open_candidate_url(candidate)
+function M.open_candidate_url(candidate)
 	if M.is_valid.url(candidate) then
 		local url = { candidate }
 		try_open_with_error(url, "URL not accessible: " .. candidate)
@@ -302,6 +302,15 @@ local function filter_valid_candidates(cands, on_done)
 end
 
 function M.select_url()
+	local tmux = require("pathfinder.tmux")
+
+	if tmux.is_enabled() then
+		local tmux_result = tmux.select_url()
+		if tmux_result == true then
+			return
+		end
+	end
+
 	local all = {}
 
 	-- Collect URL candidates.
@@ -358,7 +367,7 @@ function M.select_url()
 			visual_select.DIM_NS,
 			visual_select.highlight_candidate,
 			function(sel)
-				open_candidate_url(sel.url)
+				M.open_candidate_url(sel.url)
 			end,
 			#cands[1].label
 		)
@@ -506,7 +515,7 @@ end
 
 function M.gx()
 	jump_url(1, true, function(c)
-		open_candidate_url(c.url)
+		M.open_candidate_url(c.url)
 	end, nil, false)
 end
 

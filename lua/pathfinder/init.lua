@@ -20,6 +20,7 @@ if not compatible then
 		select_file_line = nop,
 		select_url = nop,
 		hover_description = nop,
+		toggle_tmux = nop,
 	}
 end
 
@@ -48,6 +49,45 @@ M.select_file = core.select_file
 M.select_file_line = core.select_file_line
 M.select_url = url.select_url
 M.hover_description = hover.hover_description
+
+local messages = {
+	tmux = "Pathfinder: Not in a tmux environment",
+}
+
+M.tmux_toggle = function()
+	if vim.env.TMUX ~= nil then
+		config.toggle_tmux_mode()
+		config.update_config_for_buffer()
+	else
+		notify.warn(messages.tmux)
+	end
+end
+M.tmux_on = function()
+	if vim.env.TMUX ~= nil then
+		config.set_tmux_mode(true)
+		config.update_config_for_buffer()
+	else
+		notify.warn(messages.tmux)
+	end
+end
+M.tmux_off = function()
+	if vim.env.TMUX ~= nil then
+		config.set_tmux_mode(false)
+		config.update_config_for_buffer()
+	else
+		notify.warn(messages.tmux)
+	end
+end
+
+vim.api.nvim_create_user_command("PathfinderTmuxToggle", M.tmux_toggle, {
+	desc = "Toggle Pathfinder tmux mode",
+})
+vim.api.nvim_create_user_command("PathfinderTmuxOn", M.tmux_on, {
+	desc = "Enable Pathfinder tmux mode",
+})
+vim.api.nvim_create_user_command("PathfinderTmuxOff", M.tmux_off, {
+	desc = "Disable Pathfinder tmux mode",
+})
 
 -- Load all filetype handlers from ./ft/<filetype>.lua.
 local function load_filetype_handlers()
