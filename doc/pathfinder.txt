@@ -350,10 +350,9 @@ remap_default_keys ~
 Default: `true` (boolean)
 
     Remap the default `gf`, `gF`, and `gx` keys, as well as setting up
-    `<leader>` variants of these for visual selection, e.g. `<leader>gf`. With
-    this option enabled, |hover_description| will also mapped to `<leader>h`.
-    If this is `false`, no keys will be mapped and you will need to set your
-    own custom key mappings.
+    `<leader>` variants of these for visual selection, e.g. `<leader>gf`. If
+    this is `false`, no keys will be mapped and you will need to set your own
+    custom key mappings.
 
 					   *pathfinder-offer_multiple_options*
 offer_multiple_options ~

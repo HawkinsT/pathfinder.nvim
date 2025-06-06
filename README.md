@@ -9,7 +9,7 @@
 
 ## What is Pathfinder?
 
-Pathfinder enhances Neovim's native file navigation by extending `gf` (go to file) and `gF` (go to file with line number), as well as adding a targeted file selection mode with `<leader>gf`; but you can customize or disable these default keymaps as needed. It’s designed to give developers more control and precision when navigating codebases.
+Pathfinder enhances Neovim's native file navigation by extending `gf` (go to file) and `gF` (go to file with line number), as well as adding a targeted file selection mode with `<leader>gf`; but you can customize or disable these default keymaps as needed. It's designed to give developers more control and precision when navigating codebases.
 
 ---
 
@@ -54,7 +54,7 @@ After installation, you can optionally configure Pathfinder (see below) or start
 
 ## Basic Usage
 
-Pathfinder works out of the box by enhancing `gf`, `gF`, and `gx`. Here’s how it behaves:
+Pathfinder works out of the box by enhancing `gf`, `gF`, and `gx`. Here's how it behaves:
 
 - **`gf`**: Opens the next valid file after the cursor. Use `[count]gf` to jump to the _count'th_ file.
 - **`gF`**: Opens the next file and places the cursor at the _count'th_ line.
@@ -156,7 +156,7 @@ vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
 ### Highlights
 
 - **`forward_limit`**: Set the forward search limit to a specific number of lines. Set to `0` to search the entire buffer or `-1` for the visible window area.
-- **`open_mode`**: Use any command to open files, e.g. `"edit"`, `"split"`, or supply a function which takes two arguments; filename and line number (optional).
+- **`open_mode`**: Use any command to open files, e.g. `"edit"`, `"split"`, or supply a function which takes three arguments; filename and line/column numbers (optional).
 - **`ft_overrides`**: Customize per-filetype.
 - **`remap_default_keys`**: Set to `false` to use custom mappings:
   ```lua

@@ -147,7 +147,7 @@ local function build_url_candidates(target)
 		end
 	end
 
-	-- If it’s a flake (prefix:address), map through flake_providers.
+	-- If it's a flake (prefix:address), map through flake_providers.
 	if url.is_valid.flake(target) then
 		local full = url.flake_to_url(target)
 		if full then
@@ -155,7 +155,7 @@ local function build_url_candidates(target)
 		end
 	end
 
-	-- If it’s already a valid URL, then we're good.
+	-- If it's already a valid URL, then we're good.
 	if url.is_valid.url(target) then
 		set[target] = true
 	end

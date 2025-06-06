@@ -331,7 +331,7 @@ function M.start_selection_loop(
 			return
 		end
 
-		-- If exactly one match with a fully typed label, we’re done.
+		-- If exactly one match with a fully typed label, we're done.
 		if #matches == 1 and #user_input == required_length then
 			local windows = M.get_windows_to_check()
 			clear_extmarks(windows, highlight_ns, dim_ns)
