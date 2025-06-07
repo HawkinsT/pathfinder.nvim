@@ -20,7 +20,7 @@ if not compatible then
 		select_file_line = nop,
 		select_url = nop,
 		hover_description = nop,
-		toggle_tmux = nop,
+		tmux_toggle = nop,
 	}
 end
 
