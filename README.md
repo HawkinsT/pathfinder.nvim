@@ -22,6 +22,7 @@ Pathfinder enhances Neovim's native file navigation by extending `gf` (go to fil
 - **Smarter File Resolving**: Resolves complex file patterns `gf` and `gF` miss.
 - **Smarter URL Resolving**: Resolves `owner/repo` combinations against a list of URLs.
 - **Terminal Awareness**: Never loses track of your current directory when using terminal buffers.
+- **tmux Integration**: Open files or web addresses from other tmux panes.
 - **Enclosure Support**: Recognize file paths and URLs between user-specified multi-character delimiters.
 - **Interactive Selection**: Choose from multiple matches with a simple prompt when ambiguity emerges.
 - **Flexible Opening Modes**: Open files in the current buffer, splits, tabs, or even external programs.
@@ -120,6 +121,7 @@ require('pathfinder').setup({
 	offer_multiple_options = true, -- If multiple valid files with the same name are found, prompt for action
 	pick_from_all_windows = true, -- Provide `select_file()` and `select_file_line()` targets across all visible windows
 	selection_keys = { "a", "s", "d", "f", "j", "k", "l" }, -- Keys to use for selection in `select_file()` and `select_file_line()`
+    tmux_mode = false, -- If true and in a tmux session, visual selection applies to the last active tmux pane
 })
 ```
 
@@ -150,7 +152,6 @@ vim.api.nvim_set_hl(0, "PathfinderNumberHighlight", { fg = "#00FF00", bg = "none
 vim.api.nvim_set_hl(0, "PathfinderColumnHighlight", { fg = "#FFFF00", bg = "none" })
 vim.api.nvim_set_hl(0, "PathfinderNextKey", { fg = "#FF00FF", bg = "none" })
 vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
-
 ```
 
 ### Highlights
@@ -158,7 +159,7 @@ vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
 - **`forward_limit`**: Set the forward search limit to a specific number of lines. Set to `0` to search the entire buffer or `-1` for the visible window area.
 - **`open_mode`**: Use any command to open files, e.g. `"edit"`, `"split"`, or supply a function which takes three arguments; filename and line/column numbers (optional).
 - **`ft_overrides`**: Customize per-filetype.
-- **`remap_default_keys`**: Set to `false` to use custom mappings:
+- **`remap_default_keys`**: Set to `false` to use custom mappings, e.g:
   ```lua
     vim.keymap.set('n', 'gf', require('pathfinder').gf)
     vim.keymap.set('n', 'gF', require('pathfinder').gF)
@@ -166,12 +167,72 @@ vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
     vim.keymap.set('n', '<leader>gf', require('pathfinder').select_file)
     vim.keymap.set('n', '<leader>gF', require('pathfinder').select_file_line)
     vim.keymap.set('n', '<leader>gx', require('pathfinder').select_url)
-     vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description, {
-         desc = "Pathfinder: Hover",
-         noremap = true,
-         silent = true,
-     })
+    vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description, {
+        desc = "Pathfinder: Hover",
+        silent = true,
+    })
+    vim.keymap.set("n", "<leader>t", require("pathfinder").tmux_toggle, {
+        desc = "Pathfinder: Toggle tmux Mode",
+        silent = true,
+    })
   ```
+
+---
+
+## tmux Integration
+
+Pathfinder integrates seamlessly with `tmux`. When `tmux_mode` is enabled, the visual selection commands like `select_file()` (`<leader>gf`) will capture text from the last active (i.e. not Neovim) `tmux` pane.
+
+This allows you to, for example, launch Neovim, after receiving a compiler message, in a new `tmux` pane. With `tmux_mode` enabled, running `<leader>gF` in this Neovim instance will then mirror the initial tmux pane, allowing you to open the file at the line corresponding to the compiler message.
+
+You can toggle this feature on the fly with the following commands:
+
+- `:PathfinderTmuxOn`: Enables `tmux` mode.
+- `:PathfinderTmuxOff`: Disables `tmux` mode.
+- `:PathfinderTmuxToggle`: Toggles `tmux` mode on/off.
+
+**Note**: This functionality requires you to be running Neovim inside a `tmux` session.
+
+### Integrating With Statuslines
+
+The status of Pathfinder's `tmux_mode` may be added to your statusline. For example, using [lualine.nvim](https://github.com/nvim-lualine/lualine.nvim), if you wish to treat this as a sub-mode of normal mode, you may add something like the following to your lualine config:
+
+```lua
+{
+    "nvim-lualine/lualine.nvim",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    config = function()
+        require("lualine").setup({
+            sections = {
+                lualine_a = {
+                    -- If Pathfinder tmux_mode == true:
+                    {
+                        function()
+                            return "N-TMUX"
+                        end,
+                        cond = function()
+                            return require("pathfinder.config").config.tmux_mode
+                                and vim.fn.mode() == "n"
+                        end,
+                        color = { gui = "bold" },
+                        padding = { left = 1, right = 1 },
+                    },
+                    -- Otherwise fall back to the built-in mode display:
+                    {
+                        "mode",
+                        cond = function()
+                            return not (
+                                require("pathfinder.config").config.tmux_mode
+                                and vim.fn.mode() == "n"
+                            )
+                        end,
+                    },
+                },
+            },
+        })
+    end,
+},
+```
 
 ---
 

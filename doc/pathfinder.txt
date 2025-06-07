@@ -1,5 +1,5 @@
 *pathfinder.txt*		       Enhanced file and URL search for Neovim
-						     Last change: 2025 June 04
+						     Last change: 2025 June 07
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
@@ -13,6 +13,7 @@ Configuration ...................................... |pathfinder-configuration|
     File Resolution ....................... |pathfinder-config-file-resolution|
     URL Resolution ......................... |pathfinder-config-url-resolution|
     User Interaction ..................... |pathfinder-config-user-interaction|
+tmux Integration ............................................ |pathfinder-tmux|
 Navigation Functions .................................. |pathfinder-navigation|
     next_file() ........................................ |pathfinder-next_file|
     prev_file() ........................................ |pathfinder-prev_file|
@@ -47,7 +48,7 @@ It enhances file/URL resolution with:
 By default, this plugin remaps `gf`, `gF`, and `gx` to provide these enhancements,
 although this can be disabled in favour of custom keymaps.
 
-The functions |select_file()|, |select_file_line()|, and |select_url()| are
+The functions |select_file|, |select_file_line|, and |select_url| are
 also provided, mapped to `<leader>gf`, `<leader>gF`, and `<leader>gx` by
 default. Inspired by other plugins, namely `EasyMotion`, these functions
 display all file-and-line or URL/repo targets in the current visible window
@@ -90,7 +91,7 @@ being selected automatically if this is false.
 
 Like `[count]gf`, `[count]gx` will open the count'th valid URL, repository, or
 flake (specified by |url_providers| / |flake_providers|) at or after the
-cursor. Like `gx`
+cursor.
 
 Key Features: ~
   - Resolves files with extensions from |associated_filetypes| and 'suffixesadd'.
@@ -153,6 +154,7 @@ Defaults ~
 	offer_multiple_options = true,
 	pick_from_all_windows = true,
 	selection_keys = { "a", "s", "d", "f", "j", "k", "l" },
+	tmux_mode = false,
     })
 <
 
@@ -206,7 +208,7 @@ Default: `true` (boolean)
 use_column_numbers ~
 Default: `true` (boolean)
 
-    If `true`, `select_file`, `select_file_line`, and `gF` (if no count is
+    If `true`, |select_file|, |select_file_line|, and `gF` (if no count is
     supplied), will also place the cursor at an optional column number if
     found after the line number.
 
@@ -245,7 +247,7 @@ Default: `"nextfile"` (string)
 
 						    *pathfinder-validate_urls*
 validate_urls ~
-Default: `false` boolean
+Default: `false` (boolean)
 
     Behaviour for `next_url` and `prev_url`. If `true`, all URL targets will
     be validated (checked for a 2xx status code). This can significantly slow
@@ -367,7 +369,7 @@ Default: `true` (boolean)
 pick_from_all_windows ~
 Default: `true` (boolean)
 
-    If `true`, `select_file()`, `select_file_line()`, and `select_url()` will
+    If `true`, |select_file|, |select_file_line|, and |select_url| will
     offer targets across all visible windows, not just the active window.
 
 						   *pathfinder-selection_keys*
@@ -376,6 +378,58 @@ Default: `{ "a", "s", "d", "f", "j", "k", "l" }` (string[])
 
     Keys used for user input when |select_file| is called. Useful for users
     of non-QWERTY layouts.
+
+							*pathfinder-tmux_mode*
+tmux_mode ~
+Default: `false` (boolean)
+
+    When `true` and running inside a tmux session, the visual selection
+    functions, |select_file|, |select_file_line|, and |select_url| will
+    operate on the content of the last active tmux pane. This allows you to
+    select file paths or URLs that appear in other terminal panes without
+    leaving Neovim.
+
+==============================================================================
+							     *pathfinder-tmux*
+TMUX INTEGRATION 
+
+If you work with Neovim inside a tmux session, Pathfinder can extend its
+visual selection capabilities to other tmux panes. When enabled, this feature
+captures the visible text of the last-accessed pane and uses that content as
+the source for |select_file|, |select_file_line|, and |select_url|.
+
+This is useful for workflows where you might list files in a shell (e.g. with
+`ls`, `find`, or from compiler outputs) in one pane and then jump to one of
+those files from within Neovim in another pane.
+
+This mode can be enabled via the |pathfinder-tmux_mode| setting or controlled
+dynamically with the user commands and Lua functions below. These have no
+effect if you are not in a tmux environment.
+
+						      *pathfinder-tmux_toggle*
+:PathfinderTmuxToggle ~
+Toggles tmux integration mode on or off. This can also be called as a Lua
+function. For example, to map to a key:
+>lua
+    vim.keymap.set("n", "<leader>t", require("pathfinder").tmux_toggle, {
+        desc = "Pathfinder: Toggle tmux Mode",
+	silent = true,
+    })
+<
+
+							  *pathfinder-tmux_on*
+:PathfinderTmuxOn ~
+Enables tmux integration mode. This can also be called as a Lua function:
+>lua
+    require("pathfinder").tmux_on()
+<
+
+							 *pathfinder-tmux_off*
+:PathfinderTmuxOff ~
+Disables tmux integration mode. This can also be called as a Lua function:
+>lua
+    require("pathfinder").tmux_off()
+<
 
 ==============================================================================
 					     *pathfinder-navigation-functions*
@@ -442,13 +496,12 @@ and |selection_keys|.
 
 						*pathfinder-hover_description*
 hover_description() ~
-Tries to retrieve a description from the HTML header of the '|<cfile>|' under
+Tries to retrieve a description from the HTML header of the |<cfile>| under
 the cursor. This function has no default key mapping, but can be set with,
 e.g:
 >lua
  vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description, {
      desc = "Pathfinder: Hover",
-     noremap = true,
      silent = true,
  })
 <
