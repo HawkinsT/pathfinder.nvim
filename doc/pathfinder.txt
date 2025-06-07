@@ -14,7 +14,7 @@ Configuration ...................................... |pathfinder-configuration|
     URL Resolution ......................... |pathfinder-config-url-resolution|
     User Interaction ..................... |pathfinder-config-user-interaction|
 tmux Integration ............................................ |pathfinder-tmux|
-Navigation Functions .................................. |pathfinder-navigation|
+Navigation Functions ........................ |pathfinder-navigation-functions|
     next_file() ........................................ |pathfinder-next_file|
     prev_file() ........................................ |pathfinder-prev_file|
     next_url() .......................................... |pathfinder-next_url|
@@ -45,8 +45,8 @@ It enhances file/URL resolution with:
   - Future extensibility for use with external programs.
   - Retains compatibility with (almost) all standard `gf`, `gF`, and `gx` behaviour.
 
-By default, this plugin remaps `gf`, `gF`, and `gx` to provide these enhancements,
-although this can be disabled in favour of custom keymaps.
+By default, this plugin remaps `gf`, `gF`, and `gx` to provide these
+enhancements, although this can be disabled in favour of custom keymaps.
 
 The functions |select_file|, |select_file_line|, and |select_url| are
 also provided, mapped to `<leader>gf`, `<leader>gF`, and `<leader>gx` by
@@ -104,58 +104,58 @@ Key Features: ~
 
 With Counts: ~
   - `gf`        Opens the next valid file.
-  - `gF`        Opens the next file, taking optional line count, e.g. `file:10`.
-  - `gx`        Attempts to open the next valid web link (URL or git repo).
+  - `gF`        The same as `gf` but with optional line count, e.g. `file:10`.
+  - `gx`        Opens the next valid web link (URL, git repo, or flake).
   - `[count]gf` Opens the count'th valid file.
-  - `[count]gF` Opens the next valid file with the cursor at the count'th line.
-  - `[count]gx` Attempts to open the count'th valid web link (URL or git repo).
+  - `[count]gF` Opens the next valid file at the count'th line.
+  - `[count]gx` Opens the count'th valid web link (URL, git repo, or flake).
 
 ==============================================================================
 						    *pathfinder-configuration*
 CONFIGURATION 
 
- Configure the plugin by calling `require('pathfinder').setup(config)`, where
- `config` is an optional table overriding default settings. Calling the setup
- function is not required unless you wish to override any default values.
+Configure the plugin by calling `require('pathfinder').setup(config)`, where
+`config` is an optional table overriding default settings. Calling the setup
+function is not required unless you wish to override any default values.
 
 Defaults ~
 >lua
-    require('pathfinder').setup({
- 	forward_limit = -1,
- 	scan_unenclosed_words = true,
-	use_column_numbers = true,
-	open_mode = "edit",
-	reuse_existing_window = true,
- 	gF_count_behaviour = "nextfile",
-	validate_urls = false,
-	max_path_length = 4096,
- 	associated_filetypes = {},
-	url_providers = {
-	    "https://github.com/%s.git",
-	},
-	flake_providers = {
-		github = "https://github.com/%s",
-		gitlab = "https://gitlab.com/%s",
-		sourcehut = "https://git.sr.ht/%s",
-	},
- 	enclosure_pairs = {
-	    ["("] = ")",
-	    ["{"] = "}",
-	    ["["] = "]",
-	    ["<"] = ">",
-	    ['"'] = '"',
-	    ["'"] = "'",
-	    ["`"] = "`",
-	},
-	url_enclosure_pairs = nil,
-	includeexpr = nil,
-	ft_overrides = {},
-	remap_default_keys = true,
-	offer_multiple_options = true,
-	pick_from_all_windows = true,
-	selection_keys = { "a", "s", "d", "f", "j", "k", "l" },
-	tmux_mode = false,
-    })
+ require('pathfinder').setup({
+     forward_limit = -1,
+     scan_unenclosed_words = true,
+     use_column_numbers = true,
+     open_mode = "edit",
+     reuse_existing_window = true,
+     gF_count_behaviour = "nextfile",
+     validate_urls = false,
+     max_path_length = 4096,
+     associated_filetypes = {},
+     url_providers = {
+         "https://github.com/%s.git",
+     },
+     flake_providers = {
+     	github = "https://github.com/%s",
+     	gitlab = "https://gitlab.com/%s",
+     	sourcehut = "https://git.sr.ht/%s",
+     },
+     enclosure_pairs = {
+         ["("] = ")",
+         ["{"] = "}",
+         ["["] = "]",
+         ["<"] = ">",
+         ['"'] = '"',
+         ["'"] = "'",
+         ["`"] = "`",
+     },
+     url_enclosure_pairs = nil,
+     includeexpr = nil,
+     ft_overrides = {},
+     remap_default_keys = true,
+     offer_multiple_options = true,
+     pick_from_all_windows = true,
+     selection_keys = { "a", "s", "d", "f", "j", "k", "l" },
+     tmux_mode = false,
+ })
 <
 
 						 *pathfinder-highlight-groups*
@@ -165,12 +165,12 @@ The |select_file| and |select_file_line| functions use the following default
 highlight groups, which may be overridden:
 
 >lua
-    vim.api.nvim_set_hl(0, "PathfinderDim",	        { fg = "#808080", bg = "none" })
-    vim.api.nvim_set_hl(0, "PathfinderHighlight",       { fg = "#DDDDDD", bg = "none" })
-    vim.api.nvim_set_hl(0, "PathfinderNumberHighlight", { fg = "#00FF00", bg = "none" })
-    vim.api.nvim_set_hl(0, "PathfinderColumnHighlight", { fg = "#FFFF00", bg = "none" })
-    vim.api.nvim_set_hl(0, "PathfinderNextKey",	        { fg = "#FF00FF", bg = "none" })
-    vim.api.nvim_set_hl(0, "PathfinderFutureKeys",      { fg = "#BB00AA", bg = "none" })
+ vim.api.nvim_set_hl(0, "PathfinderDim",	     { fg = "#808080", bg = "none" })
+ vim.api.nvim_set_hl(0, "PathfinderHighlight",       { fg = "#DDDDDD", bg = "none" })
+ vim.api.nvim_set_hl(0, "PathfinderNumberHighlight", { fg = "#00FF00", bg = "none" })
+ vim.api.nvim_set_hl(0, "PathfinderColumnHighlight", { fg = "#FFFF00", bg = "none" })
+ vim.api.nvim_set_hl(0, "PathfinderNextKey",	     { fg = "#FF00FF", bg = "none" })
+ vim.api.nvim_set_hl(0, "PathfinderFutureKeys",      { fg = "#BB00AA", bg = "none" })
 <
 
 -------------------------------------------------------------------------------
@@ -208,9 +208,9 @@ Default: `true` (boolean)
 use_column_numbers ~
 Default: `true` (boolean)
 
-    If `true`, |select_file|, |select_file_line|, and `gF` (if no count is
-    supplied), will also place the cursor at an optional column number if
-    found after the line number.
+    If `true`, both `gF` (if no count is supplied) and |select_file_line| will
+    additionally place the cursor at an optional column number, supplied
+    after the line number, if found.
 
 							*pathfinder-open_mode*
 open_mode ~
@@ -281,16 +281,16 @@ Default: `{}` (string[])
 						  *pathfinder-enclosure_pairs*
 enclosure_pairs ~
 Default:
->
-	{
-		["("] = ")",
-		["{"] = "}",
-		["["] = "]",
-		["<"] = ">",
-		['"'] = '"',
-		["'"] = "'",
-		["`"] = "`",
-	}	
+>lua
+ {
+      ["("] = ")",
+      ["{"] = "}",
+      ["["] = "]",
+      ["<"] = ">",
+      ['"'] = '"',
+      ["'"] = "'",
+      ["`"] = "`",
+ }	
 <
 (table)
 
@@ -329,8 +329,8 @@ Default: `{}` (table)
     }
 <
      This plugin also loads filetype handlers from its `ft/` directory (e.g.
-     `ft/tex.lua`). See |filetype-overrides|. User-defined `ft_overrides` take
-     precedence over these handlers.
+     `ft/tex.lua`). See |pathfinder-filetype-overrides|. User-defined
+     `ft_overrides` take precedence over these handlers.
 
 -------------------------------------------------------------------------------
 					    *pathfinder-config-url-resolution*
@@ -408,8 +408,8 @@ effect if you are not in a tmux environment.
 
 						      *pathfinder-tmux_toggle*
 :PathfinderTmuxToggle ~
-Toggles tmux integration mode on or off. This can also be called as a Lua
-function. For example, to map to a key:
+    Toggles tmux integration mode on or off. This can also be called as a Lua
+    function. It has no default key mapping, but can be set with, e.g:
 >lua
     vim.keymap.set("n", "<leader>t", require("pathfinder").tmux_toggle, {
         desc = "Pathfinder: Toggle tmux Mode",
@@ -419,14 +419,14 @@ function. For example, to map to a key:
 
 							  *pathfinder-tmux_on*
 :PathfinderTmuxOn ~
-Enables tmux integration mode. This can also be called as a Lua function:
+    Enables tmux integration mode. This can also be called as a Lua function:
 >lua
     require("pathfinder").tmux_on()
 <
 
 							 *pathfinder-tmux_off*
 :PathfinderTmuxOff ~
-Disables tmux integration mode. This can also be called as a Lua function:
+    Disables tmux integration mode. This can also be called as a Lua function:
 >lua
     require("pathfinder").tmux_off()
 <
@@ -437,31 +437,31 @@ NAVIGATION FUNCTIONS
 
 							*pathfinder-next_file*
 next_file(count) ~
-Navigates to the count'th valid file after the cursor in the current buffer.
-Mapped to `]f` by default.
+    Navigates to the count'th valid file after the cursor in the current
+    buffer. Mapped to `]f` by default.
 
 							*pathfinder-prev_file*
 prev_file(count) ~
-Navigates to the count'th valid file before the cursor in the current buffer.
-Mapped to `[f` by default.
+    Navigates to the count'th valid file before the cursor in the current
+    buffer. Mapped to `[f` by default.
 
 							 *pathfinder-next_url*
 next_url(count) ~
-Navigates to the count'th URL or owner/repo target after the cursor in the
-current buffer. This looks for strings starting https:// or http://, as well
-as those matching a owner/repo format. By default, links won't be validated
-(checking that they return a 2xx status code) due to performance concerns,
-however this may be enabled via setting |validate_urls|. Mapped to `]u` by
-default.
+    Navigates to the count'th URL or owner/repo target after the cursor in the
+    current buffer. This looks for strings starting https:// or http://, as
+    well as those matching a owner/repo format. By default, links won't be
+    validated (checking that they return a 2xx status code) due to performance
+    concerns, however this may be enabled via setting |validate_urls|. Mapped
+    to `]u` by default.
 
 							 *pathfinder-prev_url*
 prev_url(count) ~
-Navigates to the count'th URL or owner/repo target before the cursor in the
-current buffer. This looks for strings starting https:// or http://, as well
-as those matching a owner/repo format. By default, links won't be validated
-(checking that they return a 2xx status code) due to performance concerns,
-however this may be enabled via setting |validate_urls|. Mapped to `[u` by
-default.
+    Navigates to the count'th URL or owner/repo target before the cursor in
+    the current buffer. This looks for strings starting https:// or http://,
+    as well as those matching a owner/repo format. By default, links won't be
+    validated (checking that they return a 2xx status code) due to performance
+    concerns, however this may be enabled via setting |validate_urls|. Mapped
+    to `[u` by default.
 
 ==============================================================================
 						     *pathfinder-ui-functions*
@@ -469,41 +469,43 @@ UI FUNCTIONS
 
 						      *pathfinder-select_file*
 select_file() ~
-Inspired by plugins such as `EasyMotion` and `Hop`, this function displays all
-visible valid files in the current buffer and allows the user to select which
-one to open based on motion targets. This function is mapped to `<leader>gf`
-by default.
+    Inspired by plugins such as `EasyMotion` and `Hop`, this function displays
+    all visible valid files in the current buffer and allows the user to
+    select which one to open based on motion targets. This function is mapped
+    to `<leader>gf` by default.
 
-Function-specific options are |reuse_existing_window|,
-|pick_from_all_windows|, and |selection_keys|.
+    Function-specific options are |reuse_existing_window|,
+    |pick_from_all_windows|, and |selection_keys|.
 
-The colour scheme used by this function is configurable via highlight groups.
-See |pathfinder-highlight-groups|.
+    The colour scheme used by this function is configurable via highlight
+    groups. See |pathfinder-highlight-groups|.
 
 						 *pathfinder-select_file_line*
 select_file_line() ~
-Similar to `select_file()`, but also displays and navigates to associated line
-numbers (if present). This function is mapped to `<leader>gF` by default.
+    Similar to `select_file()`, but also displays and navigates to associated
+    line numbers (if present). This function is mapped to `<leader>gF` by
+    default.
 
 						       *pathfinder-select_url*
 select_url() ~
-Similar to `select_file()`, but displays and navigates to URLs, repos, and
-flakes (as specified by |url_providers and |flake_providers| respectively).
-This function is mapped to `<leader>gx` by default.
+    Similar to `select_file()`, but displays and navigates to URLs, repos, and
+    flakes (as specified by |url_providers| and |flake_providers|
+    respectively). This function is mapped to `<leader>gx` by default.
 
-Function-specific options are |url_enclosure_pairs|, |pick_from_all_windows|,
-and |selection_keys|.
+    Function-specific options are |url_enclosure_pairs|,
+    |pick_from_all_windows|, and |selection_keys|.
 
 						*pathfinder-hover_description*
 hover_description() ~
-Tries to retrieve a description from the HTML header of the |<cfile>| under
-the cursor. This function has no default key mapping, but can be set with,
-e.g:
+    Tries to retrieve a description from the HTML header of the '|<cfile>|'
+    under the cursor. This function has no default key mapping, but can be set
+    with, e.g:
 >lua
- vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description, {
-     desc = "Pathfinder: Hover",
-     silent = true,
- })
+    vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description,
+    {
+        desc = "Pathfinder: Hover",
+        silent = true,
+    })
 <
 ==============================================================================
 					       *pathfinder-filetype-overrides*
@@ -534,8 +536,11 @@ to `false` in the configuration. For example:
  vim.keymap.set('n', '<leader>gF', require('pathfinder').select_file_line)
  vim.keymap.set('n', "<leader>gx", require('pathfinder').select_url)
  vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description, {
-     desc = "Pathfinder: Hover",
-     noremap = true,
+     desc = "Pathfinder: URL Hover Description",
+     silent = true,
+ })
+ vim.keymap.set("n", "<leader>t", require("pathfinder").tmux_toggle, {
+     desc = "Pathfinder: Toggle tmux Mode",
      silent = true,
  })
 <
