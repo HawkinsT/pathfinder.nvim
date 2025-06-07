@@ -257,7 +257,7 @@ function M.toggle()
 end
 
 function M.is_enabled()
-	return config.config.tmux_mode and vim.env.TMUX_PANE
+	return config.config.tmux_mode and vim.env.TMUX_PANE ~= nil
 end
 
 function M.select_file(is_gF)
