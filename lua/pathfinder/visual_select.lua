@@ -6,13 +6,14 @@ local config = require("pathfinder.config")
 local notify = require("pathfinder.notify")
 
 function M.set_default_highlights()
+    -- stylua: ignore
 	local shared_highlights = {
-		{ "PathfinderHighlight", { fg = "#DDDDDD", bg = "none" } },
+		{ "PathfinderDim",             { fg = "#808080", bg = "none" } },
+		{ "PathfinderHighlight",       { fg = "#DDDDDD", bg = "none" } },
 		{ "PathfinderNumberHighlight", { fg = "#00FF00", bg = "none" } },
 		{ "PathfinderColumnHighlight", { fg = "#FFFF00", bg = "none" } },
-		{ "PathfinderDim", { fg = "#808080", bg = "none" } },
-		{ "PathfinderNextKey", { fg = "#FF00FF", bg = "none" } },
-		{ "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" } },
+		{ "PathfinderNextKey",         { fg = "#FF00FF", bg = "none" } },
+		{ "PathfinderFutureKeys",      { fg = "#BB00AA", bg = "none" } },
 	}
 
 	for _, item in ipairs(shared_highlights) do
