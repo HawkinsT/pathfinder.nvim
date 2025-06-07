@@ -51,8 +51,9 @@ enhancements, although this can be disabled in favour of custom keymaps.
 The functions |select_file|, |select_file_line|, and |select_url| are
 also provided, mapped to `<leader>gf`, `<leader>gF`, and `<leader>gx` by
 default. Inspired by other plugins, namely `EasyMotion`, these functions
-display all file-and-line or URL/repo targets in the current visible window
-area, allowing the user to open any target in as few keystrokes as possible.
+display all file-and-line or URL/repo/flake targets in the current visible
+window area, allowing the user to open any target in as few keystrokes as
+possible.
 
 See the Neovim |gf|, |gF|, and |gx| documentation for more complete usage
 including variables. Where usage differs from this is noted herein.
@@ -100,7 +101,7 @@ Key Features: ~
   - Scans unenclosed words if |scan_unenclosed_words| is enabled.
   - Displays a selection menu for multiple valid files if
     |offer_multiple_options| is true.
-  - URLs and git software forges tested in order for opening web links.
+  - URLs, git forges, and flakes tested in order for opening web links.
 
 With Counts: ~
   - `gf`        Opens the next valid file.
@@ -189,7 +190,8 @@ Default: `-1` (integer)
     on the current line, best approximating default `gf` and `gF` behaviour.
     Generally, a large limit such as `10000` is recommended instead of
     searching the entire buffer, as this can take an unacceptably long time to
-    complete for very large files with no nearby file or URL targets.
+    complete for very large files with no nearby file or URL/repo/flake
+    targets.
 
 					    *pathfinder-scan_unenclosed_words*
 scan_unenclosed_words ~
@@ -249,9 +251,9 @@ Default: `"nextfile"` (string)
 validate_urls ~
 Default: `false` (boolean)
 
-    Behaviour for `next_url` and `prev_url`. If `true`, all URL targets will
-    be validated (checked for a 2xx status code). This can significantly slow
-    down URL target navigation and so is disabled by default.
+    Behaviour for `next_url` and `prev_url`. If `true`, all URL/repo/flake
+    targets will be validated (checked for a 2xx status code). This can
+    significantly slow down target navigation and so is disabled by default.
 
 -------------------------------------------------------------------------------
 					   *pathfinder-config-file-resolution*
@@ -341,7 +343,7 @@ url_enclosure_pairs ~
 Default: `nil` (table)
 
     If set, then functions as |enclosure_pairs|, superseding this option for
-    URL/repo selection targets.
+    URL/repo/flake selection targets.
 
 ------------------------------------------------------------------------------
 					  *pathfinder-config-user-interaction*
@@ -386,8 +388,8 @@ Default: `false` (boolean)
     When `true` and running inside a tmux session, the visual selection
     functions, |select_file|, |select_file_line|, and |select_url| will
     operate on the content of the last active tmux pane. This allows you to
-    select file paths or URLs that appear in other terminal panes without
-    leaving Neovim.
+    select file paths or URLs/repos/flakes that appear in other terminal panes
+    without leaving Neovim.
 
 ==============================================================================
 							     *pathfinder-tmux*
@@ -447,21 +449,21 @@ prev_file(count) ~
 
 							 *pathfinder-next_url*
 next_url(count) ~
-    Navigates to the count'th URL or owner/repo target after the cursor in the
-    current buffer. This looks for strings starting https:// or http://, as
-    well as those matching a owner/repo format. By default, links won't be
-    validated (checking that they return a 2xx status code) due to performance
-    concerns, however this may be enabled via setting |validate_urls|. Mapped
-    to `]u` by default.
+    Navigates to the count'th URL, owner/repo, or flake target after the
+    cursor in the current buffer. This looks for strings starting https:// or
+    http://, as well as those matching an owner/repo or flake format. By
+    default, links won't be validated (checked that they return a 2xx status
+    code) due to performance concerns, however this may be enabled via setting
+    |validate_urls|. Mapped to `]u` by default.
 
 							 *pathfinder-prev_url*
 prev_url(count) ~
-    Navigates to the count'th URL or owner/repo target before the cursor in
-    the current buffer. This looks for strings starting https:// or http://,
-    as well as those matching a owner/repo format. By default, links won't be
-    validated (checking that they return a 2xx status code) due to performance
-    concerns, however this may be enabled via setting |validate_urls|. Mapped
-    to `[u` by default.
+    Navigates to the count'th URL, owner/repo, or flake target before the
+    cursor in the current buffer. This looks for strings starting https:// or
+    http://, as well as those matching an owner/repo or flake format. By
+    default, links won't be validated (checked that they return a 2xx status
+    code) due to performance concerns, however this may be enabled via setting
+    |validate_urls|. Mapped to `[u` by default.
 
 ==============================================================================
 						     *pathfinder-ui-functions*
@@ -497,9 +499,9 @@ select_url() ~
 
 						*pathfinder-hover_description*
 hover_description() ~
-    Tries to retrieve a description from the HTML header of the '|<cfile>|'
-    under the cursor. This function has no default key mapping, but can be set
-    with, e.g:
+    Tries to retrieve a description from the HTML header of the URL, repo, or
+    flake under the cursor. This function has no default key mapping, but can
+    be set with, e.g:
 >lua
     vim.keymap.set("n", "<leader>h", require("pathfinder").hover_description,
     {
