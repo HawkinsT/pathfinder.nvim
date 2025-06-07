@@ -31,9 +31,9 @@ local function html_unescape(s)
 		["&euro;"] = "€",
 		["&yen;"] = "¥",
 		["&cent;"] = "¢",
-		["&trade"] = "™",
-		["&copy"] = "©",
-		["&reg"] = "®",
+		["&trade;"] = "™",
+		["&copy;"] = "©",
+		["&reg;"] = "®",
 	}
 	return s:gsub("(&%a+;)", entities)
 end
