@@ -176,8 +176,7 @@ end
 
 function M.open_candidate_url(candidate)
 	if M.is_valid.url(candidate) then
-		local url = { candidate }
-		try_open_with_error(url, "URL not accessible: " .. candidate)
+		try_open_with_error({ candidate }, "URL not accessible: " .. candidate)
 		return
 	end
 
@@ -204,8 +203,8 @@ function M.open_candidate_url(candidate)
 			return notify.error("Flake not found: " .. prefix)
 		end
 
-		local url = { fmt:format(rest) }
-		try_open_with_error(url, "Flake not accessible: " .. url)
+		local url = fmt:format(rest)
+		try_open_with_error({ url }, "Flake not accessible: " .. url)
 		return
 	end
 
