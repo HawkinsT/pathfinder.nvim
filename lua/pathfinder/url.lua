@@ -13,8 +13,10 @@ local visual_select = require("pathfinder.visual_select")
 visual_select.set_default_highlights()
 
 local messages = {
-	none = "No URL candidates found",
-	none_valid = "No valid URL candidates found",
+	none = "URL candidate not found",
+	none_valid = "Valid URL candidate not found",
+	none_count = "%s URL target not found (%d available)",
+	none_valid_count = "Valid %s URL target not found (%d available)",
 }
 
 local patterns = {
@@ -379,32 +381,6 @@ function M.select_url()
 	end
 end
 
--- Return the {first, last} line to scan.
-local function get_scan_range(buf, direction, use_limit)
-	local lim = config.config.forward_limit
-	local cur_line = api.nvim_win_get_cursor(0)[1]
-	local max_line = api.nvim_buf_line_count(buf)
-	if direction == 1 then
-		local start = cur_line
-		if use_limit and lim ~= 0 then
-			local n = (lim == -1)
-					and (api.nvim_win_get_height(0) - api.nvim_win_get_position(
-						0
-					)[1])
-				or lim
-			return start, math.min(max_line, start + n - 1)
-		end
-		return start, max_line
-	else
-		local finish = cur_line
-		if use_limit and lim ~= 0 then
-			local n = (lim == -1) and cur_line or lim
-			return math.max(1, finish - n + 1), finish
-		end
-		return 1, finish
-	end
-end
-
 -- Sort file list starting closest to cursor (line and column) based on direction.
 local function cmp_direction(direction)
 	return function(a, b)
@@ -418,7 +394,7 @@ end
 
 --- Jump to the count'th URL target with optional URL validation.
 -- direction: 1 -> next; -1 -> previous
--- use_limit: true -> use config forward_limit
+-- use_limit: true -> use `url_forward_limit`
 -- action: callback, e.g. jump or open
 -- count: if not supplied defaults to vim.v.count or 1
 -- validate: true -> check URLs resolve and skip on failure (can be slow)
@@ -426,31 +402,43 @@ local function jump_url(direction, use_limit, action, count, validate)
 	count = count or vim.v.count1
 
 	local buf = api.nvim_get_current_buf()
+	local win = api.nvim_get_current_win()
 	local cursor_pos = api.nvim_win_get_cursor(0)
 	local cursor_row = cursor_pos[1] -- vim.fn.line(".")
 	local cursor_col = cursor_pos[2] + 1 -- vim.fn.col(".")
+	local lim = config.config.url_forward_limit
+	local start_ln, end_ln
 
-	local first, last = get_scan_range(buf, direction, use_limit)
+	-- Determine scan range based on direction and `url_forward_limit`.
+	if direction == 1 then
+		start_ln = cursor_row
+		end_ln = (lim == 0) and api.nvim_buf_line_count(buf)
+			or (lim == -1) and fn.line("w$", win)
+			or math.min(api.nvim_buf_line_count(buf), cursor_row + lim - 1)
+	else
+		end_ln = cursor_row
+		start_ln = (lim == 0) and 1
+			or (lim == -1) and fn.line("w0", win)
+			or math.max(1, cursor_row - lim + 1)
+	end
 
 	-- Collect and deduplicate raw candidates.
-	local raw = picker.collect({
+	local all = picker.collect({
 		win_ids = { 0 },
 		buf = buf,
-		start_line = first,
-		end_line = last,
+		start_line = start_ln,
+		end_line = end_ln,
 		scan_fn = M.scan_line_for_urls,
 	})
 
-	local all = candidates.deduplicate_candidates(raw)
+	all = candidates.deduplicate_candidates(all)
 	if #all == 0 then
 		return notify.info(messages.none)
 	end
 
-	-- Filter out candidates relative to cursor.
+	-- Filter out candidates at and before/after the cursor (based on direction).
 	local filtered = {}
 	for _, c in ipairs(all) do
-		-- Filter before cursor for direction == 1, or
-		-- filter after cursor for direction == -1.
 		local dl = (c.lnum - cursor_row) * direction
 		local dc = (c.start_col - cursor_col) * direction
 		if
@@ -461,20 +449,17 @@ local function jump_url(direction, use_limit, action, count, validate)
 			filtered[#filtered + 1] = c
 		end
 	end
-	if #filtered == 0 then
-		local msg = direction == 1 and "No next URL found"
-			or "No previous URL found"
-		return notify.info(msg)
-	end
 
 	-- Sort according to direction.
 	table.sort(filtered, cmp_direction(direction))
+
+	local direc_name = direction == 1 and "Forward" or "Backward"
 
 	-- If not validating URLs, return action (jump/open) on specified raw candidate.
 	if not validate then
 		if count > #filtered then
 			notify.info(
-				string.format("Only %d URL candidates found", #filtered)
+				string.format(messages.none_count, direc_name, #filtered)
 			)
 			return
 		end
@@ -501,9 +486,10 @@ local function jump_url(direction, use_limit, action, count, validate)
 				else
 					notify.info(
 						string.format(
-							"Only %d valid URL candidate%s found",
-							#valids,
-							(#valids ~= 1) and "s" or ""
+							messages.none_valid_count,
+							direc_name,
+							count,
+							#valids
 						)
 					)
 				end

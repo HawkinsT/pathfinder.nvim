@@ -6,7 +6,8 @@ local vim = vim
 
 local default_config = {
 	-- Search behaviour:
-	forward_limit = -1,
+	file_forward_limit = 0,
+	url_forward_limit = 0,
 	scan_unenclosed_words = true,
 	use_column_numbers = true,
 	open_mode = "edit",

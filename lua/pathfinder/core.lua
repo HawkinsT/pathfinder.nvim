@@ -14,6 +14,13 @@ local visual_select = require("pathfinder.visual_select")
 
 visual_select.set_default_highlights()
 
+local messages = {
+	none_valid = "Valid file target not found",
+	none_count = "Valid file target not found (%d available)",
+	none_direc_count = "%s file target not found (%d available)",
+	cannot_open = "Unable to locate file; check it still exists",
+}
+
 -- Expects absolute line and column numbers (1, 1) which will then be converted:
 -- Rows are 1-indexed and columns are 0-indexed here, because why not...
 local function goto_line_column(window, line_arg, col_arg)
@@ -138,7 +145,7 @@ local function select_file(is_gF)
 	end
 
 	if #all_raw == 0 then
-		notify.info("No valid file targets in visible windows")
+		notify.info(messages.none_valid)
 		return
 	end
 
@@ -169,7 +176,7 @@ local function select_file(is_gF)
 								M.try_open_file(sel, is_gF)
 							end)
 						else
-							notify.warn("No file selected or resolved")
+							notify.warn(messages.cannot_open)
 						end
 					end,
 					false
@@ -290,15 +297,16 @@ local function custom_gf(is_gF, count)
 	local cursor_pos = api.nvim_win_get_cursor(0)
 	local cursor_row = cursor_pos[1] -- vim.fn.line(".")
 	local cursor_col = cursor_pos[2] + 1 -- vim.fn.col(".")
-	local end_ln = api.nvim_buf_line_count(buf) -- vim.fn.line("$")
+	local lim = config.config.file_forward_limit
+	local end_ln = (lim == 0) and api.nvim_buf_line_count(buf)
+		or (lim == -1) and fn.line("w$", win)
+		or math.min(api.nvim_buf_line_count(buf), cursor_row + lim - 1)
 
-	if not config.config.scan_unenclosed_words then
-		if
-			(is_gF or (not is_gF and count <= 1))
-			and process_cursor_file(is_gF, count, nextfile)
-		then
-			return
-		end
+	if
+		(is_gF or (not is_gF and count <= 1))
+		and process_cursor_file(is_gF, count, nextfile)
+	then
+		return
 	end
 
 	local scan_fn = function(line, ln, phys)
@@ -377,11 +385,9 @@ local function custom_gf(is_gF, count)
 				end
 				M.try_open_file(c, is_gF)
 			elseif #valids == 0 then
-				notify.info("No valid file targets found")
+				notify.info(messages.none_valid)
 			else
-				notify.info(
-					"No file target found (" .. #valids .. " available)"
-				)
+				notify.info(string.format(messages.none_count, #valids))
 			end
 		end
 	)
@@ -397,11 +403,21 @@ local function jump_file(direction, count)
 	local cursor_pos = api.nvim_win_get_cursor(0)
 	local cursor_row = cursor_pos[1] -- vim.fn.line(".")
 	local cursor_col = cursor_pos[2] + 1 -- vim.fn.col(".")
+	local lim = config.config.file_forward_limit
+	local start_ln, end_ln
 
-	-- Scan range: current line to top of document or current line to bottom of document
-	local start_ln = (direction == 1) and cursor_row or 1
-	local end_ln = (direction == 1) and api.nvim_buf_line_count(buf)
-		or cursor_row
+	-- Determine scan range based on direction and `file_forward_limit`.
+	if direction == 1 then
+		start_ln = cursor_row
+		end_ln = (lim == 0) and api.nvim_buf_line_count(buf)
+			or (lim == -1) and fn.line("w$", win)
+			or math.min(api.nvim_buf_line_count(buf), cursor_row + lim - 1)
+	else
+		end_ln = cursor_row
+		start_ln = (lim == 0) and 1
+			or (lim == -1) and fn.line("w0", win)
+			or math.max(1, cursor_row - lim + 1)
+	end
 
 	-- Collect and deduplicate raw candidates.
 	local raw = candidates.collect_candidates_in_range(
@@ -466,18 +482,14 @@ local function jump_file(direction, count)
 
 	-- Validate in sequence and jump to the count'th valid file.
 	validation.collect_valid_candidates_seq(filtered, count, function(valids, _)
-		local direc_name = direction == 1 and "next" or "previous"
+		local direc_name = direction == 1 and "Forward" or "Backward"
 
 		if #valids >= count then
 			local c = valids[count]
 			api.nvim_win_set_cursor(0, { c.lnum, c.start_col - 1 })
 		else
 			notify.info(
-				string.format(
-					"No %s file target found (%d available)",
-					direc_name,
-					#valids
-				)
+				string.format(messages.none_direc_count, direc_name, #valids)
 			)
 		end
 	end)
