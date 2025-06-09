@@ -363,7 +363,7 @@ local function custom_gf(is_gF, count)
 			if cancelled then
 				return
 			end
-			if #valids >= idx then
+			if valids[idx] then
 				local c = valids[idx]
 				if is_gF then
 					c.linenr = (nextfile and user_count > 0 and user_count)
