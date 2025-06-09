@@ -488,7 +488,6 @@ local function jump_url(direction, use_limit, action, count, validate)
 						string.format(
 							messages.none_valid_count,
 							direc_name,
-							count,
 							#valids
 						)
 					)
