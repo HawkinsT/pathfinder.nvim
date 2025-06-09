@@ -28,8 +28,8 @@ Pathfinder enhances Neovim's native file navigation by extending `gf` (go to fil
 - **Flexible Opening Modes**: Open files in the current buffer, splits, tabs, or even external programs.
 - **Quick File Picker**: Use `select_file()` to jump to any visible file in the buffer, mapped to `<leader>gf` by default.
 - **Quick File Picker with line**: Use `select_file_line()` to jump to any visible file with line in the buffer, mapped to `<leader>gF` by default.
-- **Quick URL Picker**: Use `select_url()` to jump to any visible URL or online git repository, mapped to `<leader>gx` by default.
-- **URL Hover Description**: Use `hover_description()` to retrieve a description for any URL or GitHub-style `owner/repo` link under the cursor.
+- **Quick URL Picker**: Use `select_url()` to jump to any visible URL, online git repository, or Nix flake. Mapped to `<leader>gx` by default.
+- **Hover Description**: Use `hover_description()` to retrieve a description for any URL, remote `owner/repo` link, or Nix flake under the cursor.
 
 ---
 
