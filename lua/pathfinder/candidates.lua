@@ -602,18 +602,15 @@ local function collect_free_words(
 	results,
 	order
 )
-	local pos = seg_start
-	while pos <= seg_end do
-		local ws, we = line:find("%S+", pos)
-		if not ws or ws > seg_end then
-			break
-		end
-		local finish = math.min(we, seg_end)
-		if not min_col or finish >= min_col then
+	for s, word in line:sub(seg_start, seg_end):gmatch("()(%S+)") do
+		local word_start_col = seg_start + s - 1
+		local word_finish_col = word_start_col + #word - 1
+
+		if not min_col or word_finish_col >= min_col then
 			order = process_word_segment(
-				line:sub(ws, finish),
+				word,
 				lnum,
-				ws,
+				word_start_col,
 				min_col,
 				results,
 				order,
@@ -621,7 +618,6 @@ local function collect_free_words(
 				cfg
 			)
 		end
-		pos = finish + 1
 	end
 	return order
 end
