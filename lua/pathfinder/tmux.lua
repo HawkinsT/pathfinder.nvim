@@ -249,7 +249,7 @@ end
 
 function M.toggle()
 	config.config.tmux_mode = not config.config.tmux_mode
-	print(
+	notify.info(
 		("pathfinder.nvim: tmux_mode = %s"):format(
 			vim.inspect(config.config.tmux_mode)
 		)
