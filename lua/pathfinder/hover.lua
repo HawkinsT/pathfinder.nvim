@@ -35,7 +35,31 @@ local function html_unescape(s)
 		["&copy;"] = "©",
 		["&reg;"] = "®",
 	}
-	return s:gsub("(&%a+;)", entities)
+
+	local result = s
+
+	-- Replace decimal entities (e.g. &#26;).
+	result = result:gsub("&#(%d+);", function(c)
+		local num = tonumber(c)
+		if num then
+			return vim.fn.nr2char(num)
+		end
+		return "&#" .. c .. ";"
+	end)
+
+	-- Replace hexadecimal entities (e.g. &#x38;).
+	result = result:gsub("&#x(%x+);", function(c)
+		local num = tonumber(c, 16)
+		if num then
+			return vim.fn.nr2char(num)
+		end
+		return "&#x" .. c .. ";"
+	end)
+
+	-- Replace named entities (e.g. &amp;) using the table lookup.
+	result = result:gsub("(&%a+;)", entities)
+
+	return result
 end
 
 local function markdown_escape(s)
