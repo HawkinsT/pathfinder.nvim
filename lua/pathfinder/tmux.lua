@@ -66,7 +66,18 @@ local function capture_and_prepare_tmux_content(pane_id)
 		return nil
 	end
 
-	if not captured or #captured == 0 or captured[1] == "" then
+	if not captured or #captured == 0 then
+		return nil, true
+	end
+
+	local non_empty = false
+	for _, line in ipairs(captured) do
+		if line ~= "" then
+			non_empty = true
+			break
+		end
+	end
+	if not non_empty then
 		return nil, true
 	end
 
