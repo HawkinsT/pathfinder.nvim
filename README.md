@@ -84,9 +84,10 @@ Unless you wish to override the default settings, no setup is required. If you d
 ```lua
 require('pathfinder').setup({
 	-- Search behaviour
-	forward_limit = -1, -- Search the entire visible buffer
+	file_forward_limit = 0, -- Search from the cursor until the specified number of lines (for files)
+	url_forward_limit = 0, -- Search from the cursor until the specified number of lines (for URLs/repos/flakes)
 	scan_unenclosed_words = true, -- Include plain-text (non-delimited) file paths
-	use_column_numbers = true, -- Move the cursor to both a specified line and column (if supplied)
+	use_column_numbers = true, -- Use both line and column numbers (if supplied) for cursor movements
 	open_mode = "edit", -- Open files in the current buffer (:edit), accepts string or function
     reuse_existing_window = true, -- If file is already open, go to its active window (don't reopen)
 	gF_count_behaviour = "nextfile", -- [count]gF will open the next file at line `count`
@@ -156,7 +157,7 @@ vim.api.nvim_set_hl(0, "PathfinderFutureKeys", { fg = "#BB00AA", bg = "none" })
 
 ### Highlights
 
-- **`forward_limit`**: Set the forward search limit to a specific number of lines. Set to `0` to search the entire buffer or `-1` for the visible window area.
+- **`file_forward_limit/url_forward_limit`**: Set the forward search limit to a specific number of lines. Set to `0` to search the entire buffer or `-1` for the visible window area.
 - **`open_mode`**: Use any command to open files, e.g. `"edit"`, `"split"`, or supply a function which takes three arguments; filename and line/column numbers (optional).
 - **`ft_overrides`**: Customize per-filetype.
 - **`remap_default_keys`**: Set to `false` to use custom mappings, e.g:

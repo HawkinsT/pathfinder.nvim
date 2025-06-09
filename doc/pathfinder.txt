@@ -122,7 +122,8 @@ function is not required unless you wish to override any default values.
 Defaults ~
 >lua
  require('pathfinder').setup({
-     forward_limit = -1,
+     file_forward_limit = 0,
+     url_forward_limit = 0,
      scan_unenclosed_words = true,
      use_column_numbers = true,
      open_mode = "edit",
@@ -179,19 +180,30 @@ highlight groups, which may be overridden:
 SEARCH BEHAVIOUR
 
 
-						    *pathfinder-forward-limit*
-forward_limit ~
-Default: `-1` (integer)
+					       *pathfinder-file-forward-limit*
+file_forward_limit ~
+Default: `0` (integer)
 
-    This specifies the maximum number of lines to search beyond the current
-    line (inclusive). If set to `-1`, then the search will only take place
-    throughout the currently visible window area. Set it to `0` to search
-    until the end of the buffer, or to `1` to only search ahead of the cursor
-    on the current line, best approximating default `gf` and `gF` behaviour.
-    Generally, a large limit such as `10000` is recommended instead of
-    searching the entire buffer, as this can take an unacceptably long time to
-    complete for very large files with no nearby file or URL/repo/flake
-    targets.
+    Specifies the maximum number of lines to search forward or backward from
+    the current line (inclusive).
+
+    A value of `0` means the search will continue until EOF. A value of `-1`
+    restricts the search to the visible window area. A value of `1` searches
+    only on the current line past the cursor, most closely matching the
+    default `gf` and `gF` behaviour.
+
+    If you regularly work with very large files (e.g. logs), setting a
+    reasonable limit such as `1000` is recommended to prevent performance
+    issues that can occur when scanning the entire buffer for a distant file
+    target.
+
+						*pathfinder-url-forward-limit*
+url_forward_limit ~
+Default: `0` (integer)
+
+    The same as |pathfinder-file-forward-limit|, but for URL/repo/flake
+    targets. If |validate_urls| is `true`, then a value of `-1` (only the
+    visible window area) is recommended for performance.
 
 					    *pathfinder-scan_unenclosed_words*
 scan_unenclosed_words ~
