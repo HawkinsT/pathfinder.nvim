@@ -283,7 +283,7 @@ function M.scan_line_for_urls(line_text, lnum, physical_lines, base_cfg)
 end
 
 -- Asynchronously filter list of candidates using validate_candidate.
-local function filter_valid_candidates(cands, on_done)
+function M.filter_valid_candidates(cands, on_done)
 	local pending = #cands
 	local valids = {}
 	if pending == 0 then
@@ -375,7 +375,7 @@ function M.select_url()
 	end
 
 	if config.config.validate_urls then
-		filter_valid_candidates(all, launch)
+		M.filter_valid_candidates(all, launch)
 	else
 		launch(all)
 	end
