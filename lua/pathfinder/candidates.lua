@@ -861,7 +861,7 @@ function M.collect_candidates_in_range(
 	start_line,
 	end_line,
 	scan_fn,
-	skip_fold
+	skip_folds
 )
 	local collected = {}
 
@@ -900,7 +900,7 @@ function M.collect_candidates_in_range(
 		end
 	end
 
-	if skip_fold and win_id and vim.api.nvim_win_is_valid(win_id) then
+	if skip_folds and win_id and vim.api.nvim_win_is_valid(win_id) then
 		run_skip_folds()
 	else
 		run_flat()
