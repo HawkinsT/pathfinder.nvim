@@ -884,9 +884,6 @@ function M.collect_candidates_in_range(
 	-- Skip folded ranges.
 	local function run_skip_folds()
 		local fold_ranges = get_fold_ranges(win_id, start_line, end_line)
-		table.sort(fold_ranges, function(a, b)
-			return a.start < b.start
-		end)
 
 		local idx, line_iter = 1, start_line
 		while line_iter <= end_line do
