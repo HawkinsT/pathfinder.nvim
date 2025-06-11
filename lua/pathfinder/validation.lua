@@ -18,7 +18,7 @@ function M.validate_candidate(candidate, callback, auto_select)
 	local buf_path = vim.bo.path
 	local includeexpr = vim.bo.includeexpr
 
-	local resolved = utils.resolve_file(candidate)
+	local abs_path_candidate = utils.get_absolute_path(candidate)
 	local valid_candidates = {}
 	local seen = {}
 
@@ -36,13 +36,13 @@ function M.validate_candidate(candidate, callback, auto_select)
 	end
 
 	-- First check file candidate locally with and without extensions.
-	if check_candidate(resolved) then
-		callback(resolved)
+	if check_candidate(abs_path_candidate) then
+		callback(abs_path_candidate)
 		return
 	end
 	for _, ext in ipairs(unique_exts) do
-		if check_candidate(resolved .. ext) then
-			callback(resolved .. ext)
+		if check_candidate(abs_path_candidate .. ext) then
+			callback(abs_path_candidate .. ext)
 			return
 		end
 	end
@@ -68,14 +68,14 @@ function M.validate_candidate(candidate, callback, auto_select)
 			includeexpr:gsub("v:fname", vim.inspect(candidate))
 		local transformed = fn.eval(expr_with_candidate)
 		if transformed and transformed ~= candidate then
-			local resolved_transformed = utils.resolve_file(transformed)
-			if check_candidate(resolved_transformed) then
-				callback(resolved_transformed)
+			local abs_path_candidate = utils.get_absolute_path(transformed)
+			if check_candidate(abs_path_candidate) then
+				callback(abs_path_candidate)
 				return
 			end
 			for _, ext in ipairs(unique_exts) do
-				if check_candidate(resolved_transformed .. ext) then
-					callback(resolved_transformed .. ext)
+				if check_candidate(abs_path_candidate .. ext) then
+					callback(abs_path_candidate .. ext)
 					return
 				end
 			end

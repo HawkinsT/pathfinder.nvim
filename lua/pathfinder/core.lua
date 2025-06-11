@@ -120,12 +120,19 @@ local function select_file(is_gF)
 			local validate_fn = function(cand)
 				local ok
 				api.nvim_buf_call(buf, function()
-					validation.validate_candidate(cand.filename, function(res)
-						ok = (res and res ~= "")
-						if ok then
-							cand.open_path = res
-						end
-					end, true)
+					validation.validate_candidate(
+						cand.filename,
+						function(abs_path_candidate)
+							ok = (
+								abs_path_candidate
+								and abs_path_candidate ~= ""
+							)
+							if ok then
+								cand.open_path = abs_path_candidate
+							end
+						end,
+						true
+					)
 				end)
 				return ok
 			end
@@ -274,7 +281,7 @@ local function process_cursor_file(is_gF, count, nextfile)
 		end
 	end
 
-	local resolved_path = utils.resolve_file(target_candidate.filename)
+	local resolved_path = utils.get_absolute_path(target_candidate.filename)
 	if not utils.is_valid_file(resolved_path) then
 		return false
 	end
@@ -352,12 +359,12 @@ local function custom_gf(is_gF, count)
 		end
 		raw = fwd
 	elseif not is_gF and count > 1 then
-		local cf = fn.expand("<cfile>")
-		local res = utils.resolve_file(cf)
-		if utils.is_valid_file(res) then
+		local cfile = fn.expand("<cfile>")
+		local abs_path_candidate = utils.get_absolute_path(cfile)
+		if utils.is_valid_file(abs_path_candidate) then
 			table.insert(raw, 1, {
-				filename = cf,
-				open_path = res,
+				filename = cfile,
+				open_path = abs_path_candidate,
 				lnum = cursor_row,
 				finish = cursor_col - 1,
 			})

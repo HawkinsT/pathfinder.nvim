@@ -87,7 +87,7 @@ local function is_absolute(path)
 	return false
 end
 
-function M.resolve_file(file)
+function M.get_absolute_path(file)
 	if file == "~" or file:match("^~[/\\]") or file:match("^~[%w_]+[/\\]") then
 		return fn.expand(file)
 	end
