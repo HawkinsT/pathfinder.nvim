@@ -71,12 +71,31 @@ local function get_terminal_cwd()
 	return try_proc(pid) or try_lsof(pid) or try_bsd(pid) -- returns nil if none worked
 end
 
+local function is_windows()
+	return fn.has("win32") == 1
+end
+
+-- Handle Unix-like absolute paths, Windows UNC paths and Windows drive letter
+-- paths.
+local function is_absolute(path)
+	if path:sub(1, 1) == "/" or path:sub(1, 2) == "\\\\" then
+		return true
+	end
+	if is_windows() and path:match("^[A-Za-z]:") then
+		return true
+	end
+	return false
+end
+
 function M.resolve_file(file)
-	if file:sub(1, 1) == "~" then
+	if file == "~" or file:match("^~[/\\]") or file:match("^~[%w_]+[/\\]") then
 		return fn.expand(file)
-	elseif file:sub(1, 1) == "/" or file:sub(2, 2) == ":" then
+	end
+
+	if is_absolute(file) then
 		return file
 	end
+
 	local current_dir
 	if vim.bo.buftype == "terminal" then
 		current_dir = get_terminal_cwd()
