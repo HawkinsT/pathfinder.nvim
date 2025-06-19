@@ -88,7 +88,18 @@ local function is_absolute(path)
 end
 
 function M.get_absolute_path(file)
-	if file == "~" or file:match("^~[/\\]") or file:match("^~[%w_]+[/\\]") then
+	-- Tilde expansion (limit tested cases for performance).
+	if file == "~" or file:match("^~[/\\]") or file:match("^~[%w_]+[/\\]?") then
+		return fn.expand(file)
+	end
+
+	-- Unix-style environment variable (e.g. $HOME/path, ${HOME}/path).
+	if file:match("^%$[%w_]+") or file:match("^%${[%w_]+}") then
+		return fn.expand(file)
+	end
+
+	-- Windows-style environment variable (e.g. %APPDATA%\path).
+	if is_windows() and file:match("^%%[%w_]+%%") then
 		return fn.expand(file)
 	end
 
