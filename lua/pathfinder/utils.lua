@@ -79,8 +79,13 @@ local function is_windows()
 end
 
 -- Check if the current environment is WSL.
-local function is_wsl()
+function M.is_wsl()
 	return fn.has("wsl") == 1
+end
+
+-- Check if the current environment is being run through the VS Code Neovim extension.
+function M.is_vscode()
+	return vim.g.vscode ~= nil
 end
 
 -- Check if `path` is an absolute Unix-like, Windows, or UNC path.
@@ -104,7 +109,7 @@ end
 
 -- Expand %VAR% in Windows-style paths.
 local function expand_windows_env(path)
-	if not (is_windows() or is_wsl()) then
+	if not (is_windows() or M.is_wsl()) then
 		return nil
 	end
 
@@ -117,7 +122,7 @@ local function expand_windows_env(path)
 	if is_windows() then
 		-- On native Windows, fn.expand is fastest.
 		expanded_var = fn.expand("%" .. var .. "%")
-	elseif is_wsl() then
+	elseif M.is_wsl() then
 		-- On WSL fn.expand doesn't work so we must outsource to Windows.
 		local ok, lines =
 			pcall(fn.systemlist, { "cmd.exe", "/C", "echo", "%" .. var .. "%" })
@@ -156,8 +161,23 @@ local function expand_windows_env(path)
 	return expanded_var .. sep .. rest
 end
 
+function M.wsl_path_to_windows(path)
+	local drive, rest = path:match("^/mnt/([A-Za-z])/(.*)")
+	if drive then
+		rest = rest:gsub("/", "\\")
+		return drive:upper() .. ":\\" .. rest
+	end
+	local ok, out = pcall(fn.system, { "wslpath", "-w", path })
+	if ok and type(out) == "string" then
+		out = out:gsub("\r?\n$", "")
+		if out ~= "" then
+			return out
+		end
+	end
+end
+
 -- Convert Windows paths into WSL (e.g. /mnt/...) paths.
-local function windows_to_wsl(path)
+local function windows_path_to_wsl(path)
 	local ok, out = pcall(fn.system, { "wslpath", "-u", path })
 	if ok and type(out) == "string" then
 		out = out:gsub("\r?\n$", "") -- remove terminal CR/newline characters
@@ -185,8 +205,8 @@ function M.get_absolute_path(file)
 		local expanded = expand_windows_env(file) or file
 
 		-- If on WSL convert path, e.g. C:\... to /mnt/c/...
-		if is_wsl() then
-			local wsl_path = windows_to_wsl(expanded)
+		if M.is_wsl() then
+			local wsl_path = windows_path_to_wsl(expanded)
 			if wsl_path then
 				return wsl_path
 			end
@@ -197,8 +217,8 @@ function M.get_absolute_path(file)
 	end
 
 	-- Convert any native Windows path on WSL.
-	if is_wsl() then
-		local wsl_path = windows_to_wsl(file)
+	if M.is_wsl() then
+		local wsl_path = windows_path_to_wsl(file)
 		if wsl_path then
 			return wsl_path
 		end

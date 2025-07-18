@@ -52,6 +52,42 @@ local function find_and_goto_existing_window(target_abs_path, line_arg, col_arg)
 	return false -- file not currently open in any tab/window
 end
 
+-- Open files using Visual Studio Code's API when available.
+local function vscode_open(file, linenr, colnr)
+	if utils.is_wsl() then
+		local win = utils.wsl_path_to_windows(file)
+		if win then
+			file = win
+		end
+	end
+
+	local ok, vscode = pcall(require, "vscode")
+	if ok and vscode and vscode.eval_async then
+		local js = [[
+           const uri = vscode.Uri.file(args.file);
+           let opts;
+           if (args.line) {
+               opts = { selection: { startLine: args.lint - 1, startColumn: (args.col || 1) - 1 } };
+           }
+           await vscode.commands.executeCommand('vscode.open', uri, opts);
+        ]]
+		vscode.eval_async(
+			js,
+			{ args = { file = file, line = linenr, col = colnr } }
+		)
+		return
+	end
+
+	local cli_args = { "code", "-g" }
+	if linenr then
+		cli_args[#cli_args + 1] =
+			string.format("%s:%d:%d", file, linenr, colnr or 1)
+	else
+		cli_args[#cli_args + 1] = file
+	end
+	fn.jobstart(cli_args, { detach = true })
+end
+
 function M.try_open_file(valid_cand, is_gF)
 	local target_abs_path = vim.fn.fnamemodify(valid_cand.open_path, ":p")
 
@@ -61,6 +97,11 @@ function M.try_open_file(valid_cand, is_gF)
 			and config.config.use_column_numbers
 			and valid_cand.colnr
 		or nil
+
+	if config.config.vscode_handling and utils.is_vscode() then
+		vscode_open(target_abs_path, line_arg, col_arg)
+		return true
+	end
 
 	if config.config.reuse_existing_window then
 		if

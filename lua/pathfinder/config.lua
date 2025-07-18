@@ -11,6 +11,7 @@ local default_config = {
 	scan_unenclosed_words = true,
 	use_column_numbers = true,
 	open_mode = "edit",
+	vscode_handling = true,
 	reuse_existing_window = true,
 	gF_count_behaviour = "nextfile",
 	validate_urls = false,
