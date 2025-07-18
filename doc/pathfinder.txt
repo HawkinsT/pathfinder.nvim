@@ -127,6 +127,7 @@ Defaults ~
      scan_unenclosed_words = true,
      use_column_numbers = true,
      open_mode = "edit",
+     vscode_handling = true,
      reuse_existing_window = true,
      gF_count_behaviour = "nextfile",
      validate_urls = false,
@@ -241,6 +242,15 @@ Default: `"edit"` (string|function)
 	numbers (nil if not supplied). You may use this to implement custom
 	opening logic (notifications, external tools, etc). Column number
 	will always be nil if `use_column_numbers` is false.
+
+						  *pathfinder-vscode_handling*
+vscode_handling ~
+Default: `true` (boolean)
+
+    If `true` and Pathfinder detects that it's running via the VSCode Neovim
+    extension, it will use the Visual Studio Code API to open files,
+    superseding `open_mode`, and ensuring files are opened in new Visual
+    Studio Code tabs.
 
 					    *pathfinder-reuse_existing_window*
 reuse_existing_window ~
