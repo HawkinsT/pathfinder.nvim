@@ -6,6 +6,7 @@ local fn = vim.fn
 
 local config = require("pathfinder.config")
 
+-- Check if given path is a directory.
 local function is_dir(path)
 	local ok, stat = pcall(vim.uv.fs_stat, path)
 	return ok and stat and stat.type == "directory"
@@ -36,7 +37,8 @@ local function try_lsof(pid)
 	end
 end
 
--- CWD check for BSD variants (if lsof fails): use procstat (FreeBSD) or fstat (others).
+-- CWD check for BSD variants (if lsof fails).
+-- Uses procstat (FreeBSD) or fstat (others).
 local function try_bsd(pid)
 	local osname = vim.uv.os_uname().sysname
 	local cmd = (osname == "FreeBSD") and { "procstat", "-f", pid }
@@ -54,7 +56,7 @@ local function try_bsd(pid)
 	end
 end
 
--- Get the terminal's current working directory.
+-- Get Neovim terminal buffer's CWD.
 local function get_terminal_cwd()
 	if vim.bo.buftype ~= "terminal" then
 		return nil
@@ -71,25 +73,105 @@ local function get_terminal_cwd()
 	return try_proc(pid) or try_lsof(pid) or try_bsd(pid) -- returns nil if none worked
 end
 
+-- Check if the current environment is Windows (not WSL).
 local function is_windows()
 	return fn.has("win32") == 1
 end
 
--- Handle Unix-like absolute paths, Windows UNC paths and Windows drive letter
--- paths.
+-- Check if the current environment is WSL.
+local function is_wsl()
+	return fn.has("wsl") == 1
+end
+
+-- Check if `path` is an absolute Unix-like, Windows, or UNC path.
 local function is_absolute(path)
-	if path:sub(1, 1) == "/" or path:sub(1, 2) == "\\\\" then
+	-- Unix-style absolute path.
+	if path:sub(1, 1) == "/" then
 		return true
 	end
-	if is_windows() and path:match("^[A-Za-z]:") then
+
+	-- UNC path.
+	if path:sub(1, 2) == [[\\]] then
+		return true
+	end
+
+	-- Windows absolute path.
+	if is_windows() and path:match("^[A-Za-z]:[\\/]") then
 		return true
 	end
 	return false
 end
 
+-- Expand %VAR% in Windows-style paths.
+local function expand_windows_env(path)
+	if not (is_windows() or is_wsl()) then
+		return nil
+	end
+
+	local var, rest = path:match("^%%([%w_]+)%%[\\/]*(.*)")
+	if not var then
+		return nil
+	end
+
+	local expanded_var
+	if is_windows() then
+		-- On native Windows, fn.expand is fastest.
+		expanded_var = fn.expand("%" .. var .. "%")
+	elseif is_wsl() then
+		-- On WSL fn.expand doesn't work so we must outsource to Windows.
+		local ok, lines =
+			pcall(fn.systemlist, { "cmd.exe", "/C", "echo", "%" .. var .. "%" })
+		if not ok or not lines or #lines == 0 then
+			return nil
+		end
+		-- Take the expansion to be the last non-empty line, as cmd.exe may
+		-- print warnings about UNC paths first.
+		local val
+		for i = #lines, 1, -1 do
+			local line =
+				lines[i]:gsub("\r", ""):gsub("^%s*", ""):gsub("%s*$", "")
+			if line ~= "" then
+				val = line
+				break
+			end
+		end
+
+		if not val then
+			return nil
+		end
+
+		-- Check if cmd.exe failed to expand (so it just echoes the input).
+		if val:match("^%%" .. var .. "%%$") then
+			return nil
+		end
+		expanded_var = val
+	end
+
+	if not expanded_var or expanded_var == "" then
+		return nil
+	end
+
+	-- Rebuild the full path.
+	local sep = (rest and rest ~= "") and "\\" or ""
+	return expanded_var .. sep .. rest
+end
+
+-- Convert Windows paths into WSL (e.g. /mnt/...) paths.
+local function windows_to_wsl(path)
+	local ok, out = pcall(fn.system, { "wslpath", "-u", path })
+	if ok and type(out) == "string" then
+		out = out:gsub("\r?\n$", "") -- remove terminal CR/newline characters
+		if out ~= "" then
+			return out
+		end
+	end
+
+	return nil
+end
+
 function M.get_absolute_path(file)
 	-- Tilde expansion (limit tested cases for performance).
-	if file == "~" or file:match("^~[/\\]") or file:match("^~[%w_]+[/\\]?") then
+	if file:match("^~[/\\]") or file:match("^~[%w_]+[/\\]") then
 		return fn.expand(file)
 	end
 
@@ -99,14 +181,35 @@ function M.get_absolute_path(file)
 	end
 
 	-- Windows-style environment variable (e.g. %APPDATA%\path).
-	if is_windows() and file:match("^%%[%w_]+%%") then
-		return fn.expand(file)
+	if file:match("^%%[%w_]+%%") then
+		local expanded = expand_windows_env(file) or file
+
+		-- If on WSL convert path, e.g. C:\... to /mnt/c/...
+		if is_wsl() then
+			local wsl_path = windows_to_wsl(expanded)
+			if wsl_path then
+				return wsl_path
+			end
+		end
+
+		-- Else, if native Windows or conversion failed, just return what we have.
+		return expanded
 	end
 
+	-- Convert any native Windows path on WSL.
+	if is_wsl() then
+		local wsl_path = windows_to_wsl(file)
+		if wsl_path then
+			return wsl_path
+		end
+	end
+
+	-- Check if we have an absolute path and return if so.
 	if is_absolute(file) then
 		return file
 	end
 
+	-- Handle relative paths.
 	local current_dir
 	if vim.bo.buftype == "terminal" then
 		current_dir = get_terminal_cwd()
@@ -116,7 +219,8 @@ function M.get_absolute_path(file)
 	if not current_dir or current_dir == "" then
 		current_dir = fn.getcwd()
 	end
-	return current_dir .. "/" .. file
+	local sep = is_windows() and "\\" or "/"
+	return current_dir .. sep .. file
 end
 
 function M.is_valid_file(filename)
