@@ -447,21 +447,45 @@ local function process_word_segment(
 	phys_lines,
 	cfg
 )
-	local candidates = process_candidate_string(
-		word_str,
-		lnum,
-		word_start_col,
-		min_col,
-		nil,
-		0,
-		phys_lines,
-		cfg
-	)
-	for _, cand in ipairs(candidates) do
-		current_order = current_order + 1
-		cand.order = current_order
-		results[#results + 1] = cand
+	local function add_candidates(raw, start_col)
+		local candidates = process_candidate_string(
+			raw,
+			lnum,
+			start_col,
+			min_col,
+			nil,
+			0,
+			phys_lines,
+			cfg
+		)
+		for _, cand in ipairs(candidates) do
+			current_order = current_order + 1
+			cand.order = current_order
+			results[#results + 1] = cand
+		end
 	end
+
+	local eq_pos = word_str:find("=", 1, true)
+	if eq_pos then
+		local value = word_str:sub(eq_pos + 1)
+		if value ~= "" then
+			add_candidates(value, word_start_col + eq_pos)
+		end
+		return current_order
+	end
+
+	local colon_pos = word_str:find(":", 1, true)
+	if colon_pos then
+		local after = word_str:sub(colon_pos + 1)
+		local is_drive = word_str:match("^%a:[/\\]") ~= nil
+		local is_url = after:sub(1, 2) == "//"
+		if not is_drive and not is_url and after:sub(1, 1):match("[/\\]") then
+			add_candidates(after, word_start_col + colon_pos)
+			return current_order
+		end
+	end
+
+	add_candidates(word_str, word_start_col)
 	return current_order
 end
 
