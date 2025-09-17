@@ -65,8 +65,8 @@ local function get_terminal_cwd()
 	if not job_id then
 		return nil
 	end
-	local pid = fn.jobpid(job_id)
-	if not pid or pid == 0 then
+	local ok, pid = pcall(fn.jobpid, job_id)
+	if not ok or not pid or pid == 0 then
 		return nil
 	end
 
