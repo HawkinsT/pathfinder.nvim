@@ -27,7 +27,7 @@ end
 local M = {}
 
 -- Plugin version.
-M.version = "0.12.1"
+M.version = "0.12.2"
 
 local vim = vim
 
