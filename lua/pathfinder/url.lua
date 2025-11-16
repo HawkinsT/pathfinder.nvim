@@ -441,10 +441,15 @@ local function jump_url(direction, use_limit, action, count, validate)
 	for _, c in ipairs(all) do
 		local dl = (c.lnum - cursor_row) * direction
 		local dc = (c.start_col - cursor_col) * direction
+		local overlaps = (
+			c.lnum == cursor_row
+			and c.start_col <= cursor_col
+			and (c.finish or c.start_col) >= cursor_col
+		)
 		if
 			dl > 0
 			or (dl == 0 and dc > 0)
-			or (dl == 0 and dc == 0 and use_limit)
+			or (dl == 0 and overlaps and use_limit)
 		then
 			filtered[#filtered + 1] = c
 		end
