@@ -258,15 +258,6 @@ local function select_from_tmux_pane(opts)
 	return true
 end
 
-function M.toggle()
-	config.config.tmux_mode = not config.config.tmux_mode
-	notify.info(
-		("pathfinder.nvim: tmux_mode = %s"):format(
-			vim.inspect(config.config.tmux_mode)
-		)
-	)
-end
-
 function M.is_enabled()
 	return config.config.tmux_mode and vim.env.TMUX_PANE ~= nil
 end
