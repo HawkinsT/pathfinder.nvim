@@ -322,8 +322,16 @@ local function process_cursor_file(is_gF, count, nextfile)
 		end
 	end
 
-	local resolved_path = utils.get_absolute_path(target_candidate.filename)
-	if not utils.is_valid_file(resolved_path) then
+	local resolved_path
+	for _, abs_candidate in
+		ipairs(utils.get_absolute_path_candidates(target_candidate.filename))
+	do
+		if utils.is_valid_file(abs_candidate) then
+			resolved_path = abs_candidate
+			break
+		end
+	end
+	if not resolved_path then
 		return false
 	end
 
@@ -401,8 +409,16 @@ local function custom_gf(is_gF, count)
 		raw = fwd
 	elseif not is_gF and count > 1 then
 		local cfile = fn.expand("<cfile>")
-		local abs_path_candidate = utils.get_absolute_path(cfile)
-		if utils.is_valid_file(abs_path_candidate) then
+		local abs_path_candidate
+		for _, candidate_path in
+			ipairs(utils.get_absolute_path_candidates(cfile))
+		do
+			if utils.is_valid_file(candidate_path) then
+				abs_path_candidate = candidate_path
+				break
+			end
+		end
+		if abs_path_candidate then
 			table.insert(raw, 1, {
 				filename = cfile,
 				open_path = abs_path_candidate,

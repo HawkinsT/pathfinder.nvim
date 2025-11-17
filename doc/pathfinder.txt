@@ -133,6 +133,7 @@ Defaults ~
      validate_urls = false,
      max_path_length = 4096,
      associated_filetypes = {},
+     tilde_as_project_root = true,
      url_providers = {
          "https://github.com/%s.git",
      },
@@ -301,6 +302,21 @@ Default: `{}` (string[])
     per-filetype 'suffixesadd' (which is the preferred vim way), however this
     setting exists to avoid interfering with other plugins which may set
     'suffixesadd' directly.
+
+					    *pathfinder-tilde_as_project_root*
+tilde_as_project_root ~
+Default: `true` (boolean)
+
+    When `true`, treat paths starting with `"~"` as also being relative to the
+    Neovim working directory (i.e. Neovim's current working directory as shown
+    by |:pwd|). This is useful for ecosystems which overload `~/...` to mean
+    "project root" rather than the user's home directory (e.g. some web
+    frameworks). Pathfinder does not automatically detect project roots; you
+    are responsible for keeping the Neovim working directory aligned with
+    your project.
+
+    When `false`, `~` is only expanded using standard home semantics (plus the
+    literal-case fallback described above).
 
 						  *pathfinder-enclosure_pairs*
 enclosure_pairs ~

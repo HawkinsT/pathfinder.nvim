@@ -18,7 +18,7 @@ function M.validate_candidate(candidate, callback, auto_select)
 	local buf_path = vim.bo.path
 	local includeexpr = vim.bo.includeexpr
 
-	local abs_path_candidate = utils.get_absolute_path(candidate)
+	local abs_path_candidates = utils.get_absolute_path_candidates(candidate)
 	local valid_candidates = {}
 	local seen = {}
 
@@ -36,14 +36,16 @@ function M.validate_candidate(candidate, callback, auto_select)
 	end
 
 	-- First check file candidate locally with and without extensions.
-	if check_candidate(abs_path_candidate) then
-		callback(abs_path_candidate)
-		return
-	end
-	for _, ext in ipairs(unique_exts) do
-		if check_candidate(abs_path_candidate .. ext) then
-			callback(abs_path_candidate .. ext)
+	for _, abs_path_candidate in ipairs(abs_path_candidates) do
+		if check_candidate(abs_path_candidate) then
+			callback(abs_path_candidate)
 			return
+		end
+		for _, ext in ipairs(unique_exts) do
+			if check_candidate(abs_path_candidate .. ext) then
+				callback(abs_path_candidate .. ext)
+				return
+			end
 		end
 	end
 
@@ -68,15 +70,18 @@ function M.validate_candidate(candidate, callback, auto_select)
 			includeexpr:gsub("v:fname", vim.inspect(candidate))
 		local transformed = fn.eval(expr_with_candidate)
 		if transformed and transformed ~= candidate then
-			local abs_path_candidate = utils.get_absolute_path(transformed)
-			if check_candidate(abs_path_candidate) then
-				callback(abs_path_candidate)
-				return
-			end
-			for _, ext in ipairs(unique_exts) do
-				if check_candidate(abs_path_candidate .. ext) then
-					callback(abs_path_candidate .. ext)
+			local transformed_candidates =
+				utils.get_absolute_path_candidates(transformed)
+			for _, abs_path_candidate in ipairs(transformed_candidates) do
+				if check_candidate(abs_path_candidate) then
+					callback(abs_path_candidate)
 					return
+				end
+				for _, ext in ipairs(unique_exts) do
+					if check_candidate(abs_path_candidate .. ext) then
+						callback(abs_path_candidate .. ext)
+						return
+					end
 				end
 			end
 

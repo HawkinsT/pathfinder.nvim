@@ -73,6 +73,20 @@ local function get_terminal_cwd()
 	return try_proc(pid) or try_lsof(pid) or try_bsd(pid) -- returns nil if none worked
 end
 
+-- Determine the directory we should regard as the working context.
+local function get_context_cwd()
+	if vim.bo.buftype == "terminal" then
+		return get_terminal_cwd() or fn.getcwd()
+	end
+
+	local buf_dir = fn.expand("%:p:h")
+	if buf_dir and buf_dir ~= "" then
+		return buf_dir
+	end
+
+	return fn.getcwd()
+end
+
 -- Check if the current environment is Windows (not WSL).
 local function is_windows()
 	return fn.has("win32") == 1
@@ -189,58 +203,120 @@ local function windows_path_to_wsl(path)
 	return nil
 end
 
-function M.get_absolute_path(file)
-	-- Tilde expansion (limit tested cases for performance).
-	if file:match("^~[/\\]") or file:match("^~[%w_]+[/\\]") then
-		return fn.expand(file)
+-- Build an ordered list of absolute path candidates (home-expanded,
+-- project-root, env/WSL, and context-relative), so callers can try multiple
+-- possible interpretations of the same input.
+function M.get_absolute_path_candidates(file)
+	local candidates = {}
+	local seen = {}
+
+	local function add_candidate(path)
+		if not path or path == "" then
+			return
+		end
+
+		local key = path
+		local ok, normalized = pcall(fn.fnamemodify, path, ":p")
+		if ok and normalized and normalized ~= "" then
+			key = normalized
+		end
+
+		if not seen[key] then
+			candidates[#candidates + 1] = path
+			seen[key] = true
+		end
+	end
+
+	local context_dir = get_context_cwd()
+	local sep = is_windows() and "\\" or "/"
+	local handled_special = false
+
+	local function append_relative(base, rest)
+		if not base or base == "" then
+			return
+		end
+		if rest == "" then
+			add_candidate(base)
+			return
+		end
+		local prefix = base
+		if prefix:sub(-1) == "\\" or prefix:sub(-1) == "/" then
+			add_candidate(prefix .. rest)
+		else
+			add_candidate(prefix .. sep .. rest)
+		end
+	end
+
+	if file:sub(1, 1) == "~" then
+		-- Preserve standard tilde expansion, but also (optionally) treat "~/"
+		-- as project-root relative so we can support ecosystems that overload
+		-- the symbol.
+		handled_special = true
+		local expanded = fn.expand(file)
+		if expanded and expanded ~= "" and expanded ~= file then
+			add_candidate(expanded)
+		end
+
+		if config.config.tilde_as_project_root then
+			-- Use the Neovim working directory as project root.
+			local project_dir = fn.getcwd()
+			if file:match("^~[/\\]") then
+				local rest = file:gsub("^~[/\\]+", "")
+				append_relative(project_dir, rest)
+			elseif file == "~" then
+				add_candidate(project_dir)
+			end
+		end
+
+		-- Also add a literal interpretation, so edge cases of files actually
+		-- named "~" or starting with "~" are handled correctly.
+		append_relative(context_dir, file)
 	end
 
 	-- Unix-style environment variable (e.g. $HOME/path, ${HOME}/path).
 	if file:match("^%$[%w_]+") or file:match("^%${[%w_]+}") then
-		return fn.expand(file)
+		handled_special = true
+		add_candidate(fn.expand(file))
 	end
 
-	-- Windows-style environment variable (e.g. %APPDATA%\path).
+	-- Windows-style environment variable (e.g. %APPDATA%\path), including WSL
+	-- shims (e.g. convert C:\... to /mnt/c/... on WSL).
 	if file:match("^%%[%w_]+%%") then
+		handled_special = true
 		local expanded = expand_windows_env(file) or file
-
-		-- If on WSL convert path, e.g. C:\... to /mnt/c/...
 		if M.is_wsl() then
 			local wsl_path = windows_path_to_wsl(expanded)
 			if wsl_path then
-				return wsl_path
+				add_candidate(wsl_path)
 			end
 		end
-
-		-- Else, if native Windows or conversion failed, just return what we have.
-		return expanded
+		add_candidate(expanded)
 	end
 
-	-- Convert any native Windows path on WSL.
+	-- Translate native Windows paths presented inside WSL shells.
 	if M.is_wsl() then
 		local wsl_path = windows_path_to_wsl(file)
 		if wsl_path then
-			return wsl_path
+			handled_special = true
+			add_candidate(wsl_path)
 		end
 	end
 
-	-- Check if we have an absolute path and return if so.
-	if is_absolute(file) then
-		return file
+	-- Fallback to simple absolute or project-context relative resolution.
+	if not handled_special then
+		if is_absolute(file) then
+			add_candidate(file)
+		else
+			append_relative(context_dir, file)
+		end
 	end
 
-	-- Handle relative paths.
-	local current_dir
-	if vim.bo.buftype == "terminal" then
-		current_dir = get_terminal_cwd()
-	else
-		current_dir = fn.expand("%:p:h")
+	-- Also add the raw input as a file candidate.
+	if #candidates == 0 then
+		add_candidate(file)
 	end
-	if not current_dir or current_dir == "" then
-		current_dir = fn.getcwd()
-	end
-	local sep = is_windows() and "\\" or "/"
-	return current_dir .. sep .. file
+
+	return candidates
 end
 
 function M.is_valid_file(filename)

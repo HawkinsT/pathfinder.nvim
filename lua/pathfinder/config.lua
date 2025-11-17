@@ -18,6 +18,7 @@ local default_config = {
 
 	-- File resolution settings:
 	max_path_length = 4096,
+	tilde_as_project_root = true,
 	associated_filetypes = {},
 	url_providers = {
 		"https://github.com/%s.git",

@@ -95,6 +95,7 @@ require('pathfinder').setup({
 
 	-- File resolution settings
 	max_path_length = 4096, -- The maximum allowed length of any path to be scanned
+	tilde_as_project_root = true, -- If true, also treat "~/..." as the working directory (e.g. project root)
 	associated_filetypes = {}, -- File extensions that should be tried (also see `suffixesadd`)
     url_providers = { -- List of software forges to try when resolving owner/repo links
 		"https://github.com/%s.git",
