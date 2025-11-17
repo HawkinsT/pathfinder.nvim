@@ -67,7 +67,7 @@ local function vscode_open(file, linenr, colnr)
            const uri = vscode.Uri.file(args.file);
            let opts;
            if (args.line) {
-               opts = { selection: { startLine: args.lint - 1, startColumn: (args.col || 1) - 1 } };
+               opts = { selection: { startLine: args.line - 1, startColumn: (args.col || 1) - 1 } };
            }
            await vscode.commands.executeCommand('vscode.open', uri, opts);
         ]]
