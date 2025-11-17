@@ -1,5 +1,5 @@
 *pathfinder.txt*		       Enhanced file and URL search for Neovim
-						     Last change: 2025 June 07
+						 Last change: 2025 November 17
 								  *pathfinder*
 ==============================================================================
 							 *pathfinder-contents*
@@ -233,7 +233,7 @@ Default: `"edit"` (string|function)
 
     Determines how Pathfinder opens files:
 
-      - `String`: any Ex‑command that opens a file, e.g. `"edit"`, `"vsplit"`.
+      - `String`: any Ex command that opens a file, e.g. `"edit"`, `"vsplit"`.
         Pathfinder will run:  
           :{open_mode} [+<line>] <filepath>
 
@@ -359,6 +359,50 @@ Default: `{}` (table)
 -------------------------------------------------------------------------------
 					    *pathfinder-config-url-resolution*
 URL RESOLUTION
+ 
+						    *pathfinder-url_providers*
+url_providers ~
+Default:
+>lua
+ {
+     "https://github.com/%s.git",
+ }
+<
+(string[])
+
+    Ordered list of format strings used to resolve bare `owner/repo` shortcuts
+    into full URLs. Each string must contain a single `%s` placeholder, which
+    will be replaced with the `owner/repo` text that Pathfinder extracts (for
+    example, `"neovim/neovim"`).
+
+    These providers are used by |gx|, |next_url|, |prev_url|, |select_url()|,
+    and |hover_description()| when a repository shortcut is detected instead
+    of a fully-qualified URL. Providers are tried in list order until one
+    successfully validates the target (see |validate_urls|).
+
+						  *pathfinder-flake_providers*
+flake_providers ~
+Default:
+>lua
+ {
+     github = "https://github.com/%s",
+     gitlab = "https://gitlab.com/%s",
+     sourcehut = "https://git.sr.ht/%s",
+ }
+<
+(table)
+
+    Table mapping flake prefixes (e.g. `github`, `gitlab`, `sourcehut`) to
+    format strings. Each value must contain a single `%s` placeholder, which
+    will be replaced with the remainder of the flake string after the prefix,
+    for example:
+
+    - `github:owner/repo` -> `"https://github.com/%s"`:format("owner/repo")
+
+    These mappings are used whenever Pathfinder encounters flake-style targets
+    like `github:owner/repo` in |gx|, |next_url|, |prev_url|, |select_url()|,
+    and |hover_description()|. Only prefixes present as keys in this table are
+    considered valid flake providers.
 
 					      *pathfinder-url_enclosure_pairs*
 url_enclosure_pairs ~
